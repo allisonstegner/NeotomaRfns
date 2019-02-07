@@ -2,3 +2,5 @@
 
 export(extract_coords)
 export(map_dl)
+export(select_high_res)
+export(ts_min_length)
