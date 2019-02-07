@@ -4,10 +4,10 @@
 \alias{map_dl}
 \title{Map a Neotoma Download Obect}
 \usage{
-map_dl(tax_dec_dl, X, Y, add, color, label.sites, return.table)
+map_dl(dl_obj, X, Y, add, color, label.sites, return.table)
 }
 \arguments{
-\item{tax_dec_dl}{a Neotoma download object}
+\item{dl_obj}{a Neotoma download object}
 
 \item{X}{numeric; longitude}
 

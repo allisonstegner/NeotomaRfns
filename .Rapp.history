@@ -1,0 +1,9 @@
+library(roxygen2)#
+library(devtools)
+setwd("~/Desktop/Research/NeotomaRfns")
+document()
+document()
+devtools::install_github("allisonstegner/NeotomaRfns")
+ts_min_length()
+ts_min_length
+document()
