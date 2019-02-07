@@ -7,6 +7,8 @@
 map_dl(tax_dec_dl, X, Y, add, color, label.sites, return.table)
 }
 \arguments{
+\item{tax_dec_dl}{a Neotoma download object}
+
 \item{X}{numeric; longitude}
 
 \item{Y}{numeric; latitude}
@@ -18,8 +20,6 @@ map_dl(tax_dec_dl, X, Y, add, color, label.sites, return.table)
 \item{label.sites}{logical; should dataset ids be added as text labels?}
 
 \item{return.table}{logical; should a matrix containing site name, dataset id, long, and lat be returned?}
-
-\item{tax_dl_dl}{a Neotoma download object}
 }
 \value{
 A four column matrix containing site name, dataset ids, longitudes, and latitudes

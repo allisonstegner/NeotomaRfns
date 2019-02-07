@@ -2,18 +2,18 @@
 % Please edit documentation in R/extract_coords.R
 \name{extract_coords}
 \alias{extract_coords}
-\title{Extract Coordinates}
+\title{Function to extract coordinates from a Neotoma download object}
 \usage{
 extract_coords(pol_dl_obj)
 }
 \arguments{
-\item{Neotoma}{download object}
+\item{pol_dl_obj}{Neotoma download object}
 }
 \value{
 A three column matrix containing dataset ids, longitudes, and latitudes
 }
 \description{
-This functions extracts coordinates from a Neotoma download object
+This function extracts coordinates from a Neotoma download object
 }
 \author{
 M. Allison Stegner

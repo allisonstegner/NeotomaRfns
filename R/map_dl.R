@@ -1,7 +1,7 @@
 #' Map a Neotoma Download Obect
 #'
 #' Function to map location of Neotoma sites
-#' @param tax_dl_dl a Neotoma download object
+#' @param tax_dec_dl a Neotoma download object
 #' @param X numeric; longitude
 #' @param Y numeric; latitude
 #' @param add logical; should points be added to an existing map?
@@ -11,7 +11,6 @@
 #' @return A four column matrix containing site name, dataset ids, longitudes, and latitudes
 #' @author M. Allison Stegner
 #' @export
-#' map_dl()
 
 map_dl<-function(tax_dec_dl,X,Y,add,color,label.sites,return.table){
 	if (add==FALSE){
