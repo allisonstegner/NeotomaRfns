@@ -11,7 +11,7 @@
 #' @return A four column matrix containing site name, dataset ids, longitudes, and latitudes
 #' @author M. Allison Stegner
 #' @export
-#' rdname map_dl()
+#' map_dl()
 
 map_dl<-function(tax_dec_dl,X,Y,add,color,label.sites,return.table){
 	if (add==FALSE){
