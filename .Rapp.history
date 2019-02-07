@@ -1,9 +1,90 @@
 library(roxygen2)#
 library(devtools)
+get_dataset(gpid="California")
+library(neotoma, quietly=T)#
+library(rgdal, quietly=T)#
+#
+# FUNCTIONS ###########################################
+#
+# END FUNCTIONS #######################################
+#
+# convert JRBP UTM coordinates to long/lat#
+JRBP_UTM<-matrix(c(567452.3,4140277.1),nr=1,nc=2)#
+jrbp_utm<-SpatialPoints(JRBP_UTM,proj4string=CRS("+proj=utm +zone=10"))#
+JRBP_longlat<-spTransform(jrbp_utm,CRS("+proj=longlat"))#
+jrbp_longlat<-c(JRBP_longlat$coords.x1[[1]],JRBP_longlat$coords.x2[[1]])
+get_dataset(gpid="California")
+CA_sites<-get_dataset(gpid="California")
+datasettype="pollen")
+CA_sites<-get_dataset(gpid="California",#
+	datasettype="pollen")
+CA_sites
+devtools::git_install("allisonstegner/NeotomaRfns")
+devtools::install_github("allisonstegner/NeotomaRfns")
+map_dl(CA_sites)
+CA_pollen<-get_dataset(gpid="California",#
+	datasettype="pollen")#
+CA_dl<-get_download(CA_pollen)
+map_dl(CA_dl)
+library(NeotomaRfns)
+map_dl(CA_dl)
+?map_dl
+map_dl(CA_dl,X=c(-120,-80),Y=c(20,50),add=F)
+?require
+map_dl<-function(dl_obj,X,Y,add,color,label.sites,return.table){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		points(long[i],lat[i],pch=16,col=color)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-120,-80),Y=c(20,50),add=F)
+document()
+library(roxygen2)
+library(devtools)
 setwd("~/Desktop/Research/NeotomaRfns")
 document()
-document()
+devtools::install_github("allisonstegner/NeotomaRfns")#
+library("NeotomaRfns")
+?map_dl
+?map_dl
+#######################################################
+# Code to investigate paleoecological data relevant to Jasper Ridge #
+# copyright: 2019, M. Allison Stegner #
+# Updated 2019-02-07#
+#######################################################
+#
+# LIBRARIES ############################################
+#
+library(neotoma, quietly=T)#
+library(rgdal, quietly=T)#
+#
+# FUNCTIONS ###########################################
+devtools::install_github("allisonstegner/NeotomaRfns")#
+library("NeotomaRfns")#
+# END FUNCTIONS
+?map_dl
 devtools::install_github("allisonstegner/NeotomaRfns")
-ts_min_length()
-ts_min_length
-document()
+devtools::install_github("allisonstegner/NeotomaRfns",force=T)
+library("NeotomaRfns")
+?map-dl
+?map_dl

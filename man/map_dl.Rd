@@ -4,7 +4,8 @@
 \alias{map_dl}
 \title{Map a Neotoma Download Obect}
 \usage{
-map_dl(dl_obj, X, Y, add, color, label.sites, return.table)
+map_dl(dl_obj, X, Y, add, col = NULL, label.sites = FALSE,
+  return.table = TRUE)
 }
 \arguments{
 \item{dl_obj}{a Neotoma download object}
@@ -15,7 +16,7 @@ map_dl(dl_obj, X, Y, add, color, label.sites, return.table)
 
 \item{add}{logical; should points be added to an existing map?}
 
-\item{color}{what color should the points be?}
+\item{col}{what color should the points be?}
 
 \item{label.sites}{logical; should dataset ids be added as text labels?}
 
