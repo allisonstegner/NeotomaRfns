@@ -1,13 +1,19 @@
-#map_dl________________________________________________________
-# function to map location of sites
-# tax_dec_dl is a Neotoma download object
-# X is a vector with 2 elements: min and max longitude
-# Y is a vector with 2 elements: min and max latitude
-# add: should points be added to an existing map?
-# color: color to use for points
-# label.sites: should site names be added as text to the map
+#' Map a Neotoma Download Obect
+#'
+#' Function to map location of Neotoma sites
+#' @param tax_dl_dl a Neotoma download object
+#' @X numeric; longitude
+#' @Y numeric; latitude
+#' @add logical; should points be added to an existing map?
+#' @color what color should the points be?
+#' @label.sites logical; should dataset ids be added as text labels?
+#' @return.table logical; should a matrix containing site name, dataset id, long, and lat be returned?
+#' @return A four column matrix containing site name, dataset ids, longitudes, and latitudes
+#' @author M. Allison Stegner
+#' @export
+#' map_dl()
 
-map_dl<-function(tax_dec_dl,X,Y,add,color,label.sites){
+map_dl<-function(tax_dec_dl,X,Y,add,color,label.sites,return.table){
 	if (add==FALSE){
 		map("world",xlim=X,ylim=Y)
 	} 
@@ -28,6 +34,9 @@ map_dl<-function(tax_dec_dl,X,Y,add,color,label.sites){
 		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)
 	}
 	
-	out<-cbind(site.name,dataset.id,site.id,lat,long)
-	#return(out)
+	if (return.table==TRUE){
+		out<-cbind(site.name,dataset.id,site.id,lat,long)
+		return(out)
+	}
+	
 }
