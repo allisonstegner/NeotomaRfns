@@ -7,8 +7,6 @@
 #' @export
 #' extract_coords()
 
-
-# extract.coords________________________________________________________
 extract.coords<-function(pol_dl_obj){
 	coords<-matrix(NA,nc=3,nr=length(pol_dl_obj))
 	for (i in 1:length(pol_dl_obj)){

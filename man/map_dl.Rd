@@ -7,11 +7,21 @@
 map_dl(tax_dec_dl, X, Y, add, color, label.sites, return.table)
 }
 \arguments{
+\item{X}{numeric; longitude}
+
+\item{Y}{numeric; latitude}
+
+\item{add}{logical; should points be added to an existing map?}
+
+\item{color}{what color should the points be?}
+
+\item{label.sites}{logical; should dataset ids be added as text labels?}
+
+\item{return.table}{logical; should a matrix containing site name, dataset id, long, and lat be returned?}
+
 \item{tax_dl_dl}{a Neotoma download object}
 }
 \value{
-.table logical; should a matrix containing site name, dataset id, long, and lat be returned?
-
 A four column matrix containing site name, dataset ids, longitudes, and latitudes
 }
 \description{

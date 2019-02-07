@@ -2,3 +2,4 @@
 
 export("extract_coords()")
 export("map_dl()")
+export(rdname)

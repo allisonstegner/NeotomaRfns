@@ -2,16 +2,16 @@
 #'
 #' Function to map location of Neotoma sites
 #' @param tax_dl_dl a Neotoma download object
-#' @X numeric; longitude
-#' @Y numeric; latitude
-#' @add logical; should points be added to an existing map?
-#' @color what color should the points be?
-#' @label.sites logical; should dataset ids be added as text labels?
-#' @return.table logical; should a matrix containing site name, dataset id, long, and lat be returned?
+#' @param X numeric; longitude
+#' @param Y numeric; latitude
+#' @param add logical; should points be added to an existing map?
+#' @param color what color should the points be?
+#' @param label.sites logical; should dataset ids be added as text labels?
+#' @param return.table logical; should a matrix containing site name, dataset id, long, and lat be returned?
 #' @return A four column matrix containing site name, dataset ids, longitudes, and latitudes
 #' @author M. Allison Stegner
 #' @export
-#' map_dl()
+#' rdname map_dl()
 
 map_dl<-function(tax_dec_dl,X,Y,add,color,label.sites,return.table){
 	if (add==FALSE){
