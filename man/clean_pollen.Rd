@@ -4,7 +4,7 @@
 \alias{clean_pollen}
 \title{Function to clean pollen datasets from Neotoma}
 \usage{
-clean_pollen(pol_ds, type, topN = NULL, eco.group, list.name)
+clean_pollen(pol_ds, type, topN = NULL, eco.group, list.name = NULL)
 }
 \arguments{
 \item{pol_ds}{a single site from a Neotoma download object}

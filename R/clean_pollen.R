@@ -12,12 +12,17 @@
 #' @author M. Allison Stegner
 #' @export
 
-clean_pollen<-function(pol_ds,type,topN=NULL,eco.group,list.name){
+clean_pollen<-function(pol_ds,type,topN=NULL,eco.group,list.name=NULL){
 			
-			counts.subset <-compile_taxa(pol_ds,list.name)
-			sitei.counts <- counts.subset$counts
-			
-			keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]
+			if (!is.null(list.name)){
+				counts.subset <- compile_taxa(pol_ds,list.name)
+				sitei.counts <- counts.subset$counts
+				keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]
+			} else {
+				sitei.counts <- pol_ds$counts
+				taxa<-pol_ds$taxon.list
+				keep.taxa<-taxa[taxa$ecological.group %in% eco.group,"taxon.name"]
+			}
 			
 			sitei.counts<-sitei.counts[,which(colnames(sitei.counts) %in% keep.taxa)]
 			
