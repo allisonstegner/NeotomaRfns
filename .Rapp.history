@@ -1,37 +1,4 @@
-library(roxygen2)#
-library(devtools)
-get_dataset(gpid="California")
-library(neotoma, quietly=T)#
-library(rgdal, quietly=T)#
-#
-# FUNCTIONS ###########################################
-#
-# END FUNCTIONS #######################################
-#
-# convert JRBP UTM coordinates to long/lat#
-JRBP_UTM<-matrix(c(567452.3,4140277.1),nr=1,nc=2)#
-jrbp_utm<-SpatialPoints(JRBP_UTM,proj4string=CRS("+proj=utm +zone=10"))#
-JRBP_longlat<-spTransform(jrbp_utm,CRS("+proj=longlat"))#
-jrbp_longlat<-c(JRBP_longlat$coords.x1[[1]],JRBP_longlat$coords.x2[[1]])
-get_dataset(gpid="California")
-CA_sites<-get_dataset(gpid="California")
-datasettype="pollen")
-CA_sites<-get_dataset(gpid="California",#
-	datasettype="pollen")
-CA_sites
-devtools::git_install("allisonstegner/NeotomaRfns")
-devtools::install_github("allisonstegner/NeotomaRfns")
-map_dl(CA_sites)
-CA_pollen<-get_dataset(gpid="California",#
-	datasettype="pollen")#
-CA_dl<-get_download(CA_pollen)
-map_dl(CA_dl)
-library(NeotomaRfns)
-map_dl(CA_dl)
-?map_dl
-map_dl(CA_dl,X=c(-120,-80),Y=c(20,50),add=F)
-?require
-map_dl<-function(dl_obj,X,Y,add,color,label.sites,return.table){#
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites,return.table){#
 	require(maps)#
 	if (add==FALSE){#
 		map("world",xlim=X,ylim=Y)#
@@ -57,34 +24,806 @@ map_dl<-function(dl_obj,X,Y,add,color,label.sites,return.table){#
 		return(out)#
 	}#
 }
-map_dl(CA_dl,X=c(-120,-80),Y=c(20,50),add=F)
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites,return.table){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (is.null(col)){#
+			col<-"black"#
+		}#
+		points(long[i],lat[i],pch=16,col=col)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}
+}
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites,return.table){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (is.null(col)){#
+			col<-"black"#
+		}#
+		points(long[i],lat[i],pch=16,col=col)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F)
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites,return.table){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (is.null(col)){#
+			col<-"black"#
+		}#
+		points(long[i],lat[i],pch=16,col)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="red")
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites,return.table){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (!is.null(col)) points(long[i],lat[i],pch=16,col=col)#
+		else points(long[i],lat[i],pch=16)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="red")
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="red",label.sites=T)
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=NULL,return.table=NULL){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (!is.null(col)) points(long[i],lat[i],pch=16,col=col)#
+		else points(long[i],lat[i],pch=16)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="red",label.sites=T)
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="red")
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="red",label.sites=T,return.table=F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,label.sites=T,return.table=F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,label.sites=F,return.table=F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="blue",label.sites=F,return.table=F)
+?when
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=NULL,return.table=NULL){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (!is.null(col)) points(long[i],lat[i],pch=16,col=col)#
+		else points(long[i],lat[i],pch=16)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="blue")
+points()
+points
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){#
+	require(maps)#
+	if (add==FALSE){#
+		map("world",xlim=X,ylim=Y)#
+	} #
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		if (!is.null(col)) points(long[i],lat[i],pch=16,col=col)#
+		else points(long[i],lat[i],pch=16)#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (label.sites==TRUE){#
+		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}#
+	if (return.table==TRUE){#
+		out<-cbind(site.name,dataset.id,site.id,lat,long)#
+		return(out)#
+	}#
+}
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="blue")
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="blue",label.sites=T,return.table-F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F,col="blue",label.sites=T,return.table=F)
+getwd()
+setwd("~/Desktop/Research/NeotomaRfns")#
 document()
-library(roxygen2)
+library(roxygen2)#
 library(devtools)
-setwd("~/Desktop/Research/NeotomaRfns")
 document()
-devtools::install_github("allisonstegner/NeotomaRfns")#
-library("NeotomaRfns")
-?map_dl
-?map_dl
-#######################################################
-# Code to investigate paleoecological data relevant to Jasper Ridge #
-# copyright: 2019, M. Allison Stegner #
-# Updated 2019-02-07#
-#######################################################
-#
-# LIBRARIES ############################################
-#
-library(neotoma, quietly=T)#
-library(rgdal, quietly=T)#
-#
-# FUNCTIONS ###########################################
-devtools::install_github("allisonstegner/NeotomaRfns")#
-library("NeotomaRfns")#
-# END FUNCTIONS
-?map_dl
 devtools::install_github("allisonstegner/NeotomaRfns")
-devtools::install_github("allisonstegner/NeotomaRfns",force=T)
 library("NeotomaRfns")
-?map-dl
-?map_dl
+# convert JRBP UTM coordinates to long/lat#
+JRBP_UTM<-matrix(c(567452.3,4140277.1),nr=1,nc=2)#
+jrbp_utm<-SpatialPoints(JRBP_UTM,proj4string=CRS("+proj=utm +zone=10"))#
+JRBP_longlat<-spTransform(jrbp_utm,CRS("+proj=longlat"))#
+jrbp_longlat<-c(JRBP_longlat$coords.x1[[1]],JRBP_longlat$coords.x2[[1]])
+map_dl(CA_dl,X=c(-130,-110),Y=c(20,50),add=F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(25,45),add=F)
+maps("states","california")
+maps("state","california")
+map("states","california")
+map("state","california")
+map_dl(CA_dl,X=c(-130,-110),Y=c(25,45),add=F)
+map("state","california",add=T)
+map_dl(CA_dl,X=c(-130,-110),Y=c(30,45),add=F)
+map_dl(CA_dl,X=c(-130,-110),Y=c(30,45),add=F)#
+map("state","california",add=T)#
+box()
+map_dl(CA_dl,X=c(-125,-115),Y=c(30,45),add=F)#
+map("state","california",add=T)#
+box()
+map_dl(CA_dl,X=c(-125,-115),Y=c(30,40),add=F)
+box()
+map_dl(CA_dl,X=c(-125,-115),Y=c(30,42),add=F)#
+map("state","california",add=T)#
+box()
+map_dl(CA_dl,X=c(-125,-110),Y=c(30,42),add=F)#
+map("state","california",add=T)#
+box()
+map_dl(CA_dl,X=c(-125,-110),Y=c(30,42),add=F,col="green")
+map("state","california",add=T)#
+box()
+?get_dataset
+get_dataset(gpid="California",#
+	datasettype="vert")
+get_dataset(#
+	datasettype="vert")
+get_dataset(datasettype="vertebrate")
+get_dataset
+get_dataset(gpid="California",datasettype="pollen")
+get_dataset(gpid="California",datasettype="ostracode")
+get_dataset(gpid="California",datasettype="charcoal")
+CA_geochem<-get_dataset(gpid="California",#
+	datasettype="geochemistry")
+CA_geochem<-get_dataset(#
+	datasettype="geochemistry")
+get_table('datasettypes')$DatasetType
+CA_geochem<-get_dataset(gpid="California",#
+	datasettype="X-ray diffraction (XRD)")
+CA_<-get_dataset(gpid="California",#
+	datasettype="phytolith")
+CA_<-get_dataset(gpid="California",#
+	datasettype="X-ray fluorescence (XRF)")
+CA_<-get_dataset(gpid="California",#
+	datasettype="testate amoebae")
+CA_vert<-get_dataset(gpid="California",#
+	datasettype="vertebrate fauna")
+get_table('datasettypes')$DatasetType
+CA_stiso<-get_dataset(gpid="California",#
+	datasettype="stable isotope")
+CA_stiso<-get_dataset(gpid="California",#
+	datasettype="specimen stable isotope")
+CA_pollen<-get_dataset(gpid="California",#
+	datasettype="pollen")#
+pol_dl<-get_download(CA_pollen)
+map_dl(CA_dl,X=c(-125,-110),Y=c(30,42),add=F,col="green")#
+map("state","california",add=T)#
+box()
+?get_dataset
+map_dl(pol_dl,X=c(-125,-110),Y=c(30,42),add=F,col="green")
+map("state","california",add=T)
+box()
+pol_dl
+i=1
+pol_dl[[i]]
+sitei<-pol_dl[[i]]
+sitei
+sitei$counts
+sitei
+names(sitei)
+names(sitei$dataset)
+names(sitei$sample.meta)
+sitei$sample.meta$age
+sitei$sample.meta$age
+names(sitei$dataset)
+names(sitei$dataset$dataset.meta)
+names(sitei$dataset$dataset.meta)
+names(sitei$dataset$site.data)
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}#
+#
+names(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")
+?min
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}
+i=79
+print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)
+min(sitei$sample.meta$age,na.rm=T)
+max(sitei$sample.meta$age,na.rm=T)
+sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long
+length(pol_dl)
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}
+i=79
+print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long
+site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)
+c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)
+i=80
+print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	print(age.young)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	#print(age.young)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	print(age.old)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}#
+#
+nam
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	#print(age.young)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	print(age.old)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}
+i=79
+sitei<-pol_dl[[i]]
+site.name<-sitei$dataset$site.data$site.name
+sitei$counts
+nsamp
+sitei$sample.meta$age
+age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	#print(age.young)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)
+duration<-age.old-age.young
+sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$long#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}
+site.meta.matx
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$lat#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}#
+#
+names(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")
+site.meta.matx
+site.meta.matx<-as.data.frame(site.meta.matx)
+names(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")
+site.meta.matx
+site.meta.matx[which(site.meta.matx$nsamp>1),]
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+names(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$lat#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}
+site.meta.matx
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$lat#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}#
+#
+site.meta.matx<-as.data.frame(site.meta.matx)#
+names(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")#
+#
+site.meta.matx[which(site.meta.matx$nsamp>1),]
+site.meta.matx<-as.matrix(site.meta.matx)
+site.meta.matx
+site.meta.matx<-as.data.frame(site.meta.matx)
+site.meta.matx
+site.meta.matx[which(as.numeric(as.charatcer(site.meta.matx$nsamp))>1),]
+site.meta.matx[which(as.numeric(as.character(site.meta.matx$nsamp))>1),]
+site.meta.matx[which(as.numeric(as.character(site.meta.matx$nsamp))>5),]
+site.meta.matx[which(as.numeric(as.character(site.meta.matx$nsamp))>10),]
+min.samp.sites<-site.meta.matx[which(as.numeric(as.character(site.meta.matx$nsamp))>10),]
+LHOL_sites<-min.samp.sites[which(min.samp.sites$age.young>5000),]
+LHOL_sites<-min.samp.sites[which(as.numeric(as.character(site.meta.matx$age.young))>5000),]
+LHOL_sites
+LHOL_sites<-min.samp.sites[which(as.numeric(as.character(site.meta.matx$age.young))<5000),]
+LHOL_sites
+LHOL_sites<-min.samp.sites[which(as.numeric(as.character(min.samp.sites$age.young))<5000),]
+LHOL_sites
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$lat#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}#
+#
+#site.meta.matx<-as.data.frame(site.meta.matx)#
+colnames(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")
+site.meta.matx
+#site.meta.matx<-as.data.frame(site.meta.matx)#
+colnames(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")#
+min.samp.sites<-site.meta.matx[which(as.numeric(site.meta.matx$nsamp)>10),]#
+#
+LHOL_sites<-min.samp.sites[which(as.numeric(min.samp.sites$age.young)<5000),]
+site.meta.matx
+site.meta.matx$nsamp
+site.meta.matx<-as.data.frame(site.meta.matx)
+site.meta.matx$nsamp
+site.meta.matx<-matrix(NA,nr=length(pol_dl),nc=9)#
+for (i in 1:length(pol_dl)){#
+	#print(i)#
+	sitei<-pol_dl[[i]]#
+	site.name<-sitei$dataset$site.data$site.name#
+	ds.id<-sitei$dataset$dataset.meta$dataset.id#
+	nsamp<-nrow(sitei$counts)#
+	age.young<-min(sitei$sample.meta$age,na.rm=T)#
+	age.old<-max(sitei$sample.meta$age,na.rm=T)#
+	duration<-age.old-age.young#
+	avg.resolution<-duration/nsamp#
+	lat<-sitei$dataset$site.data$lat#
+	long<-sitei$dataset$site.data$long#
+	site.meta.matx[i,]<-c(site.name,ds.id,nsamp,age.young,age.old,duration,avg.resolution,long,lat)#
+}#
+#
+#site.meta.matx<-as.data.frame(site.meta.matx)#
+colnames(site.meta.matx)<-c("site.name","ds.id","nsamp","age.young","age.old","duration","avg.resolution","long","lat")#
+min.samp.sites<-site.meta.matx[which(as.numeric(site.meta.matx[,"nsamp"])>10),]#
+#
+LHOL_sites<-min.samp.sites[which(as.numeric(min.samp.sites[,"age.young"])<5000),]
+LHOL_sites
+ds.ids<0LHOL_sites[,"ds.ids"]
+dataset.ids<-LHOL_sites[,"ds.ids"]
+dataset.ids<-LHOL_sites[,"ds.id"]
+dataset.ids
+j=1
+pol_dl[[dataset.ids[j]]]
+LHOL_dl<-pol_dl[[dataset.ids]]
+dl_obj<-LHOL_dl
+LHOL_dl<-pol_dl[[dataset.ids]]#
+dl_obj<-LHOL_dl
+LHOL_dl<-pol_dl[dataset.ids]
+dl_obj<-LHOL_dl
+sitej<-dl_obj[j]
+sitej$counts
+sitej[1]$counts
+sitej<-dl_obj[j]
+sitej
+sitej[[1]]$counts
+?clean_pollen
+clean_pollen(sitej[1])
+clean_pollen(sitej[[1]])
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"))
+pol_ds<-sitej[[1]]
+pol_ds[[1]]$counts
+pol_ds[1]$counts
+pol_ds$counts
+compile_taxa(pol_ds,list.name)
+compile_taxa(pol_ds,list.name="WHITMORE")
+compile_taxa(pol_ds,"WHITMORE")
+?compile_taxa
+compile_taxa(pol_ds,list.name="WhitmoreFull")
+clean_pollen<-function(pol_ds,type,topN=NULL,eco.group,list.name=NULL){#
+			if (!is.null(list.name)){#
+				counts.subset <- compile_taxa(pol_ds,list.name)#
+			} else {#
+				counts.subset <- pol_ds$counts#
+			}#
+			sitei.counts <- counts.subset$counts#
+			keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]#
+			sitei.counts<-sitei.counts[,which(colnames(sitei.counts) %in% keep.taxa)]#
+			if (sum(colnames(sitei.counts) %in% "Other")>0){#
+				sitei.counts<-sitei.counts[,-which(colnames(sitei.counts)=="Other")]#
+			}#
+			if (is.numeric(topN)==T){#
+				abundance.order<-order(colSums(sitei.counts),decreasing=T)#
+				pollen<-sitei.counts[,abundance.order[1:topN]]#
+			} else {#
+				pollen<-sitei.counts#
+			}#
+			if (type=="pct") pollen<-pollen/rowSums(pollen,na.rm=TRUE)#
+			rownames(pollen)<-pol_ds$sample.meta$age#
+			#pollen<-pollen[which(rowSums(pollen)>0),]#
+			#ages<-as.numeric(rownames(pollen))#
+			return(pollen)#
+	}
+sitej<-dl_obj[j]
+clean_pollen(sitej,type="pct",eco.group=c("TRSH","UPHE"))
+clean_pollen(sitej,type="pct",eco.group=c("TRSH","UPHE"),list.name="WhitmoreFull")
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"),list.name="WhitmoreFull")
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"))
+pol_ds<-dl_obj[j]
+counts.subset <- compile_taxa(pol_ds,list.name)
+counts.subset <- compile_taxa(pol_ds,list.name="WhitmoreFull")
+counts.subset <- compile_taxa(pol_ds[1],list.name="WhitmoreFull")
+counts.subset <- compile_taxa(pol_ds[[1]],list.name="WhitmoreFull")
+pol_ds[[1]]$counts
+sitej[[1]]
+sitej[[1]]$counts
+compile_taxa(sitej[[1]],list.name)
+compile_taxa(sitej[[1]],list.name="WhitmoreFull")
+clean_pollen<-function(pol_ds,type,topN=NULL,eco.group,list.name=NULL){#
+			if (!is.null(list.name)){#
+				counts.subset <- compile_taxa(pol_ds,list.name)#
+			} else {#
+				counts.subset <- pol_ds$counts#
+			}#
+			sitei.counts <- counts.subset$counts#
+			keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]#
+			sitei.counts<-sitei.counts[,which(colnames(sitei.counts) %in% keep.taxa)]#
+			if (sum(colnames(sitei.counts) %in% "Other")>0){#
+				sitei.counts<-sitei.counts[,-which(colnames(sitei.counts)=="Other")]#
+			}#
+			if (is.numeric(topN)==T){#
+				abundance.order<-order(colSums(sitei.counts),decreasing=T)#
+				pollen<-sitei.counts[,abundance.order[1:topN]]#
+			} else {#
+				pollen<-sitei.counts#
+			}#
+			if (type=="pct") pollen<-pollen/rowSums(pollen,na.rm=TRUE)#
+			rownames(pollen)<-pol_ds$sample.meta$age#
+			#pollen<-pollen[which(rowSums(pollen)>0),]#
+			#ages<-as.numeric(rownames(pollen))#
+			return(pollen)#
+	}
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"))
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"),list.name="WhitmoreFull")
+counts.subset <- pol_ds$counts
+counts.subset
+pol_ds$counts
+pol_ds<-sitej[[1]]
+pol_ds$counts
+counts.subset <- pol_ds$counts
+clean_pollen<-function(pol_ds,type,topN=NULL,eco.group,list.name=NULL){#
+			if (!is.null(list.name)){#
+				counts.subset <- compile_taxa(pol_ds,list.name)#
+				sitei.counts <- counts.subset$counts#
+			} else {#
+				sitei.counts <- pol_ds$counts#
+			}#
+			keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]#
+			sitei.counts<-sitei.counts[,which(colnames(sitei.counts) %in% keep.taxa)]#
+			if (sum(colnames(sitei.counts) %in% "Other")>0){#
+				sitei.counts<-sitei.counts[,-which(colnames(sitei.counts)=="Other")]#
+			}#
+			if (is.numeric(topN)==T){#
+				abundance.order<-order(colSums(sitei.counts),decreasing=T)#
+				pollen<-sitei.counts[,abundance.order[1:topN]]#
+			} else {#
+				pollen<-sitei.counts#
+			}#
+			if (type=="pct") pollen<-pollen/rowSums(pollen,na.rm=TRUE)#
+			rownames(pollen)<-pol_ds$sample.meta$age#
+			#pollen<-pollen[which(rowSums(pollen)>0),]#
+			#ages<-as.numeric(rownames(pollen))#
+			return(pollen)#
+	}
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"),list.name="WhitmoreFull")
+clean_pollen(sitej[[1]],type="pct",eco.group=c("TRSH","UPHE"))
+sitei<-dl_obj[j]
+pol_ds<-sitei[[1]]
+clean_pollen(pol_ds,type="pct",eco.group=c("TRSH","UPHE"))
+sitei.counts <- pol_ds$counts
+keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]#
+			sitei.counts<-sitei.counts[,which(colnames(sitei.counts) %in% keep.taxa)]
+?compile.taxa
+?compile_taxa
+names(sitei)
+names(sitei[[1]])
+names(sitei[[1]]$taxon.list)
+sitei[[1]]$taxon.list
+pol_ds$taxon.list
+taxa[which(taxa$ecological.group==eco.group)]
+taxa[taxa$ecological.group %in% eco.group,]
+taxa<-pol_ds$taxon.list
+taxa
+taxa$ecological.group
+taxa$ecological.group %in% eco.group
+eco.group=c("TRSH","UPHE")
+taxa[taxa$ecological.group %in% eco.group,]
+keep.taxa<-taxa[taxa$ecological.group %in% eco.group,taxon.name]
+keep.taxa<-taxa[taxa$ecological.group %in% eco.group,"taxon.name"]
+keep.taxa
+clean_pollen<-function(pol_ds,type,topN=NULL,eco.group,list.name=NULL){#
+			if (!is.null(list.name)){#
+				counts.subset <- compile_taxa(pol_ds,list.name)#
+				sitei.counts <- counts.subset$counts#
+				keep.taxa<-counts.subset$taxon.list[counts.subset$taxon.list$ecological.group %in% eco.group,"compressed"]#
+			} else {#
+				sitei.counts <- pol_ds$counts#
+				taxa<-pol_ds$taxon.list#
+				keep.taxa<-taxa[taxa$ecological.group %in% eco.group,"taxon.name"]#
+			}#
+			sitei.counts<-sitei.counts[,which(colnames(sitei.counts) %in% keep.taxa)]#
+			if (sum(colnames(sitei.counts) %in% "Other")>0){#
+				sitei.counts<-sitei.counts[,-which(colnames(sitei.counts)=="Other")]#
+			}#
+			if (is.numeric(topN)==T){#
+				abundance.order<-order(colSums(sitei.counts),decreasing=T)#
+				pollen<-sitei.counts[,abundance.order[1:topN]]#
+			} else {#
+				pollen<-sitei.counts#
+			}#
+			if (type=="pct") pollen<-pollen/rowSums(pollen,na.rm=TRUE)#
+			rownames(pollen)<-pol_ds$sample.meta$age#
+			#pollen<-pollen[which(rowSums(pollen)>0),]#
+			#ages<-as.numeric(rownames(pollen))#
+			return(pollen)#
+	}
+clean_pollen(pol_ds,type="pct",eco.group=c("TRSH","UPHE"))
+clean_pollen(pol_ds,type="pct",eco.group=c("TRSH","UPHE"),list.name="WhitmoreFull")
+getwd()
+document()
+library(neotoma)
+get_closest(x=  c(-122,37),n=10,buffer=53,datasettype="pollen") # Simon is repairing this f/n in the neotoma package
+get_closest(x=  c(-122,37),n=10,buffer=50,datasettype="pollen") # Simon is repairing this f/n in the neotoma package
+devtools::install_githun("ropensi/neotoma")
+devtools::install_github("ropensi/neotoma")
+devtools::install_github("ropensci/neotoma")
+library(neotoma)
+get_closest(x=  c(-122,37),n=10,buffer=53,datasettype="pollen") # Simon is repairing this f/n in the neotoma package
