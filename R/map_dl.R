@@ -17,6 +17,8 @@ map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){
 		
 	if (add==FALSE){
 		map("world",xlim=X,ylim=Y)
+		map("state",add=T)
+		box()
 	} 
 	lat<-c()
 	long<-c()
