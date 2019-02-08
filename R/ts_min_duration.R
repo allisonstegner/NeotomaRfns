@@ -8,7 +8,6 @@
 #' @author M. Allison Stegner
 #' @export
 
-
 ts_min_duration<-function(dl_obj,min.time,agemodels){
 	dataset.ids<-c() # this will be filled with the Neotoma dataset ids for datasets that meet the inclusion criteria
 	for (i in 1:length(dl_obj)) {
@@ -19,17 +18,16 @@ ts_min_duration<-function(dl_obj,min.time,agemodels){
 			chroncont<-get_chroncontrol(sitei)
 			default.chronology<-chroncont$meta$name		
 			chronj<-sitei$chronologies[[i.chrons[default.chronology]]]	
+			dur<-max(chronj$age,na.rm=T)-min(chronj$age,na.rm=T)
 		} else {	
-			chronology.name<-agemodels[agemodels[,1] %in% names(dl_obj[i]),3]
-			chronj<-sitei$chronologies[[chronology.name]]		
+			chronj<-agemodels[names(agemodels) %in% names(dl_obj[i])][[1]]
+			dur<-max(chronj,na.rm=T)-min(chronj,na.rm=T)
 		}		
-		dur<-max(chronj$age,na.rm=T)-min(chronj$age,na.rm=T)
 		
-		if (dur<min.time){ 
-			dataset.ids[i]<-NA
+		if (dur<min.time){ next
 		} else {
-			dataset.ids[i]<-sitei$dataset$dataset.meta$dataset.id
+			dataset.ids<-c(dataset.ids,sitei$dataset$dataset.meta$dataset.id)
 		}
 	}
-		return(adequate.time=dataset.ids)
+		return(dataset.ids=dataset.ids)
 }
