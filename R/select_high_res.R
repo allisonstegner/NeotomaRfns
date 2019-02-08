@@ -2,12 +2,12 @@
 #'
 #' This function identifies total duration and number of samples/duration for a Neotoma download 
 #' @param dl_obj Neotoma download object
-#' @param max.grain integer; The maximum allowable number of years represented per pollen sample
+#' @param max.resolution integer; The maximum allowable number of years represented per pollen sample
 #' @return A list object containing a vector of dataset ids for sites that have resolution less than max.grain and a matrix of dataset ids, durations, and resolutions
 #' @author M. Allison Stegner
 #' @export
 
-select_high_res<-function(dl_obj,max.grain){ 		
+select_high_res<-function(dl_obj,max.resolution){ 		
 	
 	chron.table<-matrix(NA,nr=length(dl_obj),nc=3)
 	for (i in 1:length(dl_obj)) {
@@ -37,7 +37,7 @@ select_high_res<-function(dl_obj,max.grain){
 	colnames(chron.table)<-c("dataset.id","duration","time.per.pollen.sample")
 	
 	#evaluate dataset resolution: if n.sample/time is less than the pre-defined maximum grain, keep the site
-	chron.table.include<-chron.table[which(as.numeric(chron.table[,3])<=max.grain),]
+	chron.table.include<-chron.table[which(as.numeric(chron.table[,3])<=max.resolution),]
 	
 	out<-list(dataset.ids=chron.table.include[,1],chron.table=chron.table)
 	return(out)

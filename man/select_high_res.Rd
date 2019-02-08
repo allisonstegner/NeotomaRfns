@@ -4,12 +4,12 @@
 \alias{select_high_res}
 \title{Function to compile sampling resolution information for a set of Neotoma sites}
 \usage{
-select_high_res(dl_obj, max.grain)
+select_high_res(dl_obj, max.resolution)
 }
 \arguments{
 \item{dl_obj}{Neotoma download object}
 
-\item{max.grain}{integer; The maximum allowable number of years represented per pollen sample}
+\item{max.resolution}{integer; The maximum allowable number of years represented per pollen sample}
 }
 \value{
 A list object containing a vector of dataset ids for sites that have resolution less than max.grain and a matrix of dataset ids, durations, and resolutions
