@@ -37,7 +37,7 @@ map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){
 			box()
 		} 
 		if (!is.null(col)) points(long,lat,pch=16,col=col)
-		else points(long,lat,pch=16)
+		else points(long,lat,pch=1)
 
 		if (label.sites==TRUE) text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)
 	}	
