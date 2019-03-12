@@ -14,12 +14,6 @@
 
 map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){
 	require(maps)
-		
-	if (add==FALSE){
-		map("world",xlim=X,ylim=Y)
-		map("state",add=T)
-		box()
-	} 
 	lat<-c()
 	long<-c()
 	dataset.id<-c()
@@ -28,19 +22,23 @@ map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){
 	for (i in 1:length(dl_obj)){
 		long[i]<-dl_obj[[i]]$dataset$site.data$long
 		lat[i]<-dl_obj[[i]]$dataset$site.data$lat
-		if (!is.null(col)) points(long[i],lat[i],pch=16,col=col)
-		else points(long[i],lat[i],pch=16)
 		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id
 		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name
 		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id
 	}
-	if (label.sites==TRUE){
-		text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)
-	}
 	
 	if (return.table==TRUE){
-		out<-cbind(site.name,dataset.id,site.id,lat,long)
+		out<-as.data.frame(cbind(site.name,dataset.id,site.id,lat,long))
 		return(out)
-	}
-	
+	} else {
+		if (add==FALSE){
+			map("world",xlim=X,ylim=Y)
+			map("state",add=T)
+			box()
+		} 
+		if (!is.null(col)) points(long,lat,pch=16,col=col)
+		else points(long,lat,pch=16)
+
+		if (label.sites==TRUE) text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)
+	}	
 }
