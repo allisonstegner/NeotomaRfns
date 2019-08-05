@@ -5,7 +5,7 @@
 \title{Function to compute pairwise correlations on a matrix
 This function calculates pairwise spearmanns correlations on a data matrix and returns rhos and ps}
 \usage{
-pairwise_correlation(datamatx, method)
+pairwise_correlation(datamatx, method, pval.adjust = F)
 }
 \arguments{
 \item{datamatx}{is a data matrix of species (rows) abundance per site or level (cols)}
