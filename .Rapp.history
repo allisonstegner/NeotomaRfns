@@ -1,465 +1,829 @@
-warnings()
-ages3 = BchronCalibrate(ages=c(3445,11553),ageSds=c(50,230),positions=c(100,150),#
-                        calCurves=c('intcal13','normal'))#
-summary(ages3)#
-plot(ages3,withDepths=TRUE)
-warnings()
-names(XX)
-plot(c(0,5000),c(0,200),xlim=c(5000,0),ylim=c(200,0))
-plot(c(0,5000),c(0,200),xlim=c(5000,0),ylim=c(200,0),type="n")
-?density
-XX[[1]]
-i=1
-cbind(XX[[i]]$ageGrid,XX[[i]]$densities)
-cbind(XX[[i]]$ageGrid,XX[[i]]$densities)
-i=1#
-polygon(cbind(XX[[i]]$ageGrid,XX[[i]]$densities))
-?polygons
-?polygon
-polygon(x=XX[[i]]$ageGrid,y=XX[[i]]$densities)
-XX[[1]]
-plot(XX,withPositions=T)
-?Bchron
+# set fossil exclusion criteria______________________________________#
+min.samp<-20 #minimum number of samples in time series, regardless of resolution#
+max.resolution<-2000 #mean resolution (#samples/time must be this value or lower)#
+#max.chron.grain<-3000  # must be 1 chron control per this number of years #
+prop.length.cutoff<-0.7 #sites with hiatuses longer that this proportion will be flagged and info about time segments before and after each hiatus will be collected#
+ageolder<-7000#
+ageyounger<-3000#
+max.grain<-500#
+#
+# Limit to sites that have bulk_baconzing age models___________#
+path="~/Desktop/Research_Git/PrairieForestEcotone_Resilience/Cores"#
+#
+ds.ids<-matrix(NA,nr=length(pol_dl),nc=2)#
+for (j in 1:length(pol_dl)){#
+	pol_ds<-pol_dl[[j]]#
+	handlej<-pol_ds$dataset$dataset.meta$collection.handle # get site handle#
+	handle.path<-paste(path,"/",handlej,sep="") #
+	file.name<-dir(handle.path,pattern="posteriorout.csv") # use handle to import bacon iterations#
+	if (length(file.name)==0){ #
+		ds.ids[j,]<-c(NA,handlej)#
+	} else {#
+		ds.ids[j,]<-c(as.numeric(names(pol_dl[j])),handlej)#
+	}#
+}#
+#
+ds.ids<-ds.ids[complete.cases(ds.ids),]#
+pol_dl_s1<-pol_dl[ds.ids[,1]]#
+#
+# Limit to sites that cover the relevant period of time_____#
+#
+fullspan.ids<-c()#
+agemodel_means<-list()#
+all_ids<-c()#
+for (i in 1:length(pol_dl_s1)){#
+	#print(i)#
+	pol_ds<-pol_dl_s1[[i]]#
+	handlej<-pol_ds$dataset$dataset.meta$collection.handle # get site handle#
+	handle.path<-paste(path,"/",handlej,sep="") #
+	am.file<-dir(handle.path,pattern="ages.txt") #
+	am.path<-paste(handle.path,"/",am.file,sep="")#
+	am<-read.table(am.path,header=T)#
+	agemodel_means[[i]]<-am$mean#
+	all_ids[i]<-names(pol_dl_s1[i])#
+	minage<-min(am$min,na.rm=T)#
+	maxage<-max(am$max,na.rm=T)#
+	if (maxage>ageolder && minage<ageyounger){#
+		fullspan.ids<-c(fullspan.ids,names(pol_dl_s1[i]))#
+	} 	else { next }#
+}#
+names(agemodel_means)<-all_ids#
+pol_dl_s2<-pol_dl_s1[fullspan.ids]#
+#
+# limit to sites with at least n samples____________________#
+pol_n<-ts_min_length(pol_dl_s2,min.samp)#
+pol_n<-pol_n[complete.cases(pol_n)]#
+pol_dl_s3<-pol_dl_s2[as.character(pol_n)]#
+#
+# limit to sites with minimum level of average resolution___#
+pol_high<-select_high_res(pol_dl_s3,max.grain)#
+pol_dl_s4<-pol_dl_s3[as.character(pol_high$dataset.ids)]#
+#
+# limit to sites with no excessive hiatuses_________________#
+agemodels4<-agemodel_means[pol_high$dataset.ids]#
+hiatuses<-cut_hiatus_datasets(pol_dl_s4,prop.length.cutoff,agemodels4)#
+pol_dl_s5<-pol_dl_s4[as.character(hiatuses)]#
+pol_dlx<-pol_dl_s5#
+#
+# DOWNLOAD MODIS WOODY COVER DATA ###########################################
+# [See Zak Ratajczak's code]#
+#
+# import MODIS tree cover data__________________________________________#
+modis<-read.csv("~/Desktop/Research_Git/PrairieForestEcotone_Resilience/modis_tree_cover_paleo_pts.csv")
+# clean pollen#
+# restrict to the 80 pollen types (64-split) of Williams and Shuman (2008)#
+# Williams et al 2009 criteria:#
+# no analog if closest analgo SCD value was >0.3 (in which case no %WC was caluclated for the fossil sample)#
+# few analogs if the # of modern analogs was <7#
+# compile modern surface samples so that taxon names will match fossil names#
+ct.modpol<-compile_taxa(mod.pol,"WS64") # this runs slowly#
+all_taxa <- do.call(rbind.data.frame, lapply(ct.modpol, function(x)x$taxon.list[,1:6]))#
+all_taxa <- all_taxa[!duplicated(all_taxa),]#
+eco.taxa<-all_taxa[all_taxa$ecological.group %in% c("TRSH","UPHE"),] # restrict to upland herbd and trees/shrubs#
+trsh<-all_taxa[all_taxa$ecological.group %in% c("TRSH"),]#
+# write.csv(trsh,"trsh.csv")#
+trsh2<-read.csv("~/Desktop/Research_Git/PrairieForestEcotone_Resilience/trsh.csv")#
+tree<-trsh2[trsh2$grp %in% "TR",]#
+tree<-tree[,-2]#
+calc_mod_fos_scd<-function(polj,ct.polj,eco.taxa){#
+	ct.polj<-compile_taxa(polj,"WS64") # compile fossil taxa, as with surface samples#
+	polj_sub<-ct.polj$counts[,colnames(ct.polj$counts) %in% eco.taxa[,1]]#
+	polj.pct<-polj_sub/rowSums(polj_sub) #convert to percent#
+	# must generate taxon tables for modern and fossil that have same col names, and in the same order#
+	# must therefore inject 0s for unsampled types#
+	missingtypes<-setdiff(eco.taxa[,1],colnames(polj.pct))#
+	missingmatx<-matrix(data=0,nr=nrow(polj.pct),nc=length(missingtypes))#
+	colnames(missingmatx)<-missingtypes#
+	fullfosdata<-cbind(polj.pct,missingmatx)#
+	polj_full<-fullfosdata[,order(colnames(fullfosdata))]#
+	# WS used 63 of the pollen types with 14 of the types split into regional varieties.#
+	# Ambrosia not excluded#
+	# I simply used the WS64 list#
+	mod_fos_scd<-matrix(NA,nr=nrow(polj_full),nc=length(mod.pol))#
+	for (i in 1:nrow(polj_full)) {#
+		polj_timei<-polj_full[i,]		#
+		for (k in 1:length(mod.pol)){#
+			ct.modk<-ct.modpol[[k]]#
+        	modk.counts <- ct.modk$counts[,colnames(ct.modk$counts) %in% eco.taxa[,1]]#
+			modk.pct<-modk.counts/sum(modk.counts)#
+			missingtypes<-setdiff(colnames(polj_full),names(modk.pct))#
+			missingvect<-rep(0,length(missingtypes))#
+			names(missingvect)<-missingtypes#
+			fullmoddata<-c(modk.pct,missingvect)#
+			modk_full<-fullmoddata[order(names(fullmoddata))]#
+			# 1) Calculate distances between i and all modern samples#
+			# use square chord distance to measure compositional differences between modern and fossil pollen samples#
+			scddist<-analogue::distance(t(cbind(modk_full,polj_timei)),method="SQchord")#
+			mod_fos_scd[i,k]<-scddist[2,1]#
+		}#
+	}#
+	#mod_fos_scd<-analogue::distance(mod.pol.prop,polj_full,method="SQchord")#
+	colnames(mod_fos_scd)<-names(mod.pol)#
+	rownames(mod_fos_scd)<-rownames(polj_full)#
+	mod_fos_scd<-t(mod_fos_scd)#
+	return(mod_fos_scd)#
+}#
+#
+find_scd_matches<-function(mod_fos_scd,threshold,N,WC){#
+ 	matches<-array(NA,dim=c(ncol(mod_fos_scd),7,4))#
+ 	avgWC<-matrix(NA,nr=ncol(mod_fos_scd),nc=2)#
+ 	for (i in 1:ncol(mod_fos_scd)){#
+ 		# print(i)#
+ 		coli<-mod_fos_scd[,i]#
+ 		# 2) Discard modern samples with Dij>threshold (d)#
+		# 3) Of remaining samples, keep N best analogs#
+ 		nampd.matches<-sort(coli[which(coli<threshold)])[1:N]#
+ 		ids<-as.numeric(names(nampd.matches))	#
+ 		idsO<-order(ids)#
+ 		nampd.matchesO<-nampd.matches[idsO]#
+ 		IDs<-ids[idsO]#
+ 		matches[i,,1]<-as.numeric(nampd.matchesO)#
+ 		matches[i,,2]<-ids[idsO]#
+ 		AP<-c()#
+ 		for (k in 1:length(IDs)){#
+ 			pol<-ct.modpol[as.character(IDs[k])][[1]]$counts#
+ 			AP[k]<-sum(pol[which(colnames(pol) %in% tree$taxon.name)]/sum(pol))#
+ 		}#
+ 		matches[i,,4]<-AP#
+ 		WCsub<-WC[WC$dataset.id %in% ids,]#
+ 		if (nrow(WCsub)<N){#
+ 			NAtail<-rep(NA,N-nrow(WCsub))#
+ 			treecov<-c(WCsub$tree_cover,NAtail)#
+ 		} else {#
+ 			treecov<-WCsub$tree_cover#
+ 		}#
+ 		matches[i,,3]<-treecov#
+ 		fos_time<-colnames(mod_fos_scd)[i]#
+ 		# 4) calculate unweighted mean of tree cover for acceptable analogs#
+ 		meanWC<-mean(WCsub$tree_cover,na.rm=T)#
+ 		avgWC[i,]<-c(fos_time,meanWC) 		#
+ 	}#
+ 	# generate an array: #
+ 	# rows=with fossil time bins #
+ 	# lowest N scd values as cols#
+ 	# [,,1] = SCD values, [,,2]=NAMPD site indices, [,,3]=% tree cover from modis, [,,4] = %AP from pollen#
+ 	avgWC<-as.data.frame(avgWC)#
+ 	out<-list(avgWC,matches)#
+ 	return(out)	#
+}#
+# This stretch of code used to determine at which modern lat/long locaations to download MODIS DATA#
+# not necessary to repeat unless my arrag of modern analogs changes#
+#
+# mod.matches<-c()#
+# for (j in 1:length(pol_dlx)) {#
+	# #print(j)#
+	# polj<-pol_dlx[[j]]#
+#
+	# mod_fos_scd<-calc_mod_fos_scd(polj,mod.pol,eco.taxa)#
+	# # set analog/no-analog threshol as 0.3, and limited the number of analogs per fossil sample to 7#
+	# scd_matches<-find_scd_matches(mod_fos_scd,threshold=0.3,N=7,WC)#
+	# v.matches<-as.vector(scd_matches[,,2])#
+	# mod.site.matches<-unique(v.matches[!is.na(v.matches)])#
+	# mod.matches<-c(mod.matches,mod.site.matches)#
+	# #mod.matches<-mod.pol[as.character(mod.site.matches)]#
+# }#
+#
+# unique.matches<-sort(unique(mod.matches))#
+# mod.matches<-mod.pol[as.character(unique.matches)]#
+#
+# # X<-c(-180,-50)#
+# Y<-c(10,89.999)#
+# mod.sites.meta<-map_dl(mod.matches,X,Y,add=F,return.table=T,col="black")#
+# write.csv(mod.sites.meta,"modern_sites.csv")#
+#
+# pol.sites.meta<-map_dl(pol_dlx,X,Y,add=F,return.table=T)#
+# write.csv(mod.sites.meta,"fossil_sites.csv")#
+#
+# mod.sites.meta<-map_dl(mod.matches,X,Y,add=F,return.table=F,col="green")#
+# pol.sites.meta<-map_dl(pol_dlx,X,Y,add=T,return.table=F,col="black")
+WClist<-list()#
+ap_wc<-list()#
+for (j in 1:length(pol_dlx)) {#
+	print(j)#
+	polj<-pol_dlx[[j]]#
+	depths<-polj$sample.meta$depth#
+#
+	mod_fos_scd<-calc_mod_fos_scd(polj,mod.pol,eco.taxa)#
+	# set analog/no-analog threshold=0.3, and limit the number of analogs per fossil sample to 7#
+	scd_matches<-find_scd_matches(mod_fos_scd,threshold=0.3,N=7,WC=modis)#
+	ap_wc[[j]]<-cbind(as.vector(scd_matches[[2]][,,4]),as.vector(scd_matches[[2]][,,3]))#
+	# Assign average environmental values to sample i#
+	WCmatx<-cbind(scd_matches[[1]],depths)#
+	WCmatx[which(WCmatx[,2]=="NaN"),2]<-NA#
+	#WCmatx<-WCmatx[complete.cases(WCmatx),]#
+	names(WCmatx)<-c("sample","pctWC","depths")#
+	WClist[[j]]<-WCmatx#
+}#
+#
+names(WClist)<-names(pol_dlx)#
+#
+plot(c(0,100),c(0,80),type="n",las=1,ylab="% Tree Cover",xlab="% Arborial Pollen")#
+for (i in 1:length(ap_wc)){#
+	temp<-ap_wc[[i]]#
+	temp[,1]<-temp[,1]*100#
+	points(temp,pch=16,cex=0.5)#
+}
+par(mfrow=c(5,3),mar=c(0.25,0.25,0.25,0.25),oma=c(4,4,1,1))#
+for (j in 1:length(WClist)){#
+	wcj<-WClist[[j]]#
+	plot(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])),las=1,pch=16,ylim=c(0,100),xaxt="n",yaxt="n")#
+	lines(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])))#
+	axis(1,labels=F)#
+	axis(2,labels=F)#
+}
+par(mfrow=c(5,5),mar=c(0.25,0.25,0.25,0.25),oma=c(4,4,1,1))#
+for (j in 1:length(WClist)){#
+	wcj<-WClist[[j]]#
+	plot(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])),las=1,pch=16,ylim=c(0,100),xaxt="n",yaxt="n")#
+	lines(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])))#
+	axis(1,labels=F)#
+	axis(2,labels=F)#
+}
+930/5
+sum(936.56,615.14,237.15)
+3600*3
+21500+11000+31500+50+1000+3000+1450+3000
+72500+42390
+sum(10800,700,2500,1008,25200,882,500,2000,3000)
+sum(21500,1100,31500,30001450,3000)
+sum(21500,1100,31500,3000,1450,3000)
+sum(21500,11000,31500)
+sum(46590,64000,3000,1450,3000)
+700*.15
+2500*.15
+1008*.15
+25200*.15
+882*.15
+500*.15
+2000*.15
+3000*.15
+21500*.15
+11000*.15
+31500*.15
+3000*.15
+1450*.15
+3000*.15
+sum(105,375,151,3780,132,75,300,450)
+sum(3225,1650,4725)
+sum(450,218,450)
+46590+5368
+64000+9600
+1118+9600+5368
+1118+9600+5368+118040
+sum(60,128,48,42,39,61)
+sum(50,20,9,122,18,74,19)
+378-312
+sum(21500,3225,11000,1650,31500,4725)
+134126-73600
+54000+26700
+126*25
+126*50
+125*126
+15750*.15
+6300*.15
+3150*.15
+sum(10800,700,2500,1008,15750,63003150,882,500,2000,3000)
+sum(10800,700,2500,1008,15750,6300,3150,882,500,2000,3000)
+sum(105,375,151,2363,945,473,132,75,300,450)
+sum(3000,1450,3000)
+sum(450,218,450,668)
+sum(450,218,450)
+46590+7450
+5369+1118
+6487+54040
+54000+267000
+54000+26700
+15750+2363_6300+945
+15750+2363+6300+945
+60527-25358
+31000+26700
+.75*6*1
+.8*6*1
+7*1*.75
+2*2*1
+2*2*1.5
+2*3*1
+1.5*3*1
+553.5-134.5
+553.5+134.5
+seq(1103,158.5,6)
+seq(1103,158.5,-6)
+x<-seq(1103,158.5,-6)#
+y<-x+1
+y
+cbind(y,x)
+x<-rev(seq(1103,158.5,-6))#
+y<-rev(x+1)#
+#
+cbind(y,x)
+x<-rev(seq(1103,158.5,-6))#
+y<-x+1#
+#
+cbind(y,x)
+1103-158.5
+(1103-158.5)/5
+(1103-158.5)/6
+186-164
+161-22
+x<-rev(seq(1103,158.5,-6))#
+y<-x-1#
+#
+cbind(x,y)
+x<-rev(seq(1103,158.5,-5))#
+y<-x-1#
+#
+cbind(y,x)
+y<-x-.5#
+cbind(y,x)
+1103-952
+sum(700,2500,1008,15750,6300,3150,882,500,2000,3000)
+sum(700,2500,1008,15750,6300,3150,882,500,2000,3000,10800)
+sum(105,375,151,2363,945,473,132,75,300,450)
+sum(3000,1450,3000)
+46590+7450
+sum(450,218,450,1118)
+sum(450,218,450)
+1118+5369
+4000*.15
+46590+2000
+5369+300
+5669+1118
+sum(48590+7450)
+56040+6787
+library(maps)
+map(xlim=c(-180,-50),ylim=c(10,89.99))
+map(xlim=c(-180,-50),ylim=c(20,80))
+map(xlim=c(-180,-50),ylim=c(20,70))
+map(xlim=c(-180,-50),ylim=c(20,56))
+map(xlim=c(-180,-50),ylim=c(20,50))
+map(xlim=c(-160,-50),ylim=c(20,50))
+map(xlim=c(-140,-50),ylim=c(20,50))
+box()
+map(xlim=c(-130,-50),ylim=c(20,50))
+box()
+map(xlim=c(-130,-60),ylim=c(20,50))
+box()
+map("united states",c("minnesota","wisconsin","iowa"))
+map("states",c("minnesota","wisconsin","iowa"),add=T)
+?map
+map("state",c("minnesota","wisconsin","iowa"),add=T)
+map("state",c("minnesota","wisconsin","iowa"),add=T,fill="gray")
+map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray")
+map("state",c("minnesota","wisconsin","iowa"),add=T,bg="gray")
+map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray",interior=T)
+?map
+map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray",fill=T)
+map("state",add=T)
+map(xlim=c(-130,-60),ylim=c(20,50))#
+box()#
+map("state",add=T,lwd=0.5)#
+map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray",fill=T)
+map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray40",fill=T)
+map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray50",fill=T)
+7.6/2
+0.75/
+2
+40/0.38
+105*2
+7.6-2
+210/5.6
+sum(25,67,21,294)
+sum(41,42,37,20,53,84,34,32,10)
+407-353
+401-226
+library(Bchron)
+?Bcalibrate
+?Bchron_calibrate
+??Bcalibrate
 ?BchronCalibrate
-plot(XX,withPositions=T,xlim=c(5000,0),ylim=c(200,0))
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0))
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),col="black")
-summary(XX)
-summary(XX)
-cbind(XX[[j]]$densities,XX[[j]]$ageGrid)
-which(max(XX[[j]]$densities))
-which(XX[[j]]$densities==max(XX[[j]]$densities))
-XX[[j]]$ageGrid[max]
-max<-which(XX[[j]]$densities==max(XX[[j]]$densities))
-XX[[j]]$ageGrid[max]
-plot(xx[[j]])
-plot(XX[[j]])
-plot(XX[j])
-plot(XX[[j]])
-plot(x=XX[[]]$ageGrid,y=XX[[j]]$densities)
-plot(c(0,5000),c(0,200),type="n")
-polygon(x=XX[[]]$ageGrid,y=XX[[j]]$densities)
-plot(x=XX[[j]]$ageGrid,y=XX[[j]]$densities)
-bestest
-max<-which(XX[[j]]$densities==max(XX[[j]]$densities))#
-	bestest<-XX[[j]]$ageGrid[max]
-bestest
-abline(v="bestest")
-abline(v=bestest)
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0))
-WL[which(WL$Material!="charcoal"),]
-bone<-WL[which(WL$Material!="charcoal"),]
-bone<-WL[which(WL$Material!="charcoal"),]#
-bone.calybp<-BchronCalibrate(ages=bone$X14C.Age,ageSds=bone$X14C.Err,calCurves=bone$cc,positions=bone$Depth)#
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0))
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),col="red")
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0))
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0))
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols="red")
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols="gray50")
-bone.calybp<-BchronCalibrate(ages=bone$X14C.Age,ageSds=bone$X14C.Err,calCurves=bone$cc,positions=bone$Depth)#
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols="gray50")
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols=rep("gray50",length(bone.calybp)))
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols=rep("gray50",length(bone.calybp)),xaxt="n")
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols=rep("gray50",length(bone.calybp)),xaxt="n",yaxt="n")
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols=rep("gray50",length(bone.calybp)),xaxt="n",yaxt="n",ylab="n",xlab="n")
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),fillCols=rep("gray50",length(bone.calybp)),xaxt="n",yaxt="n",ylab="",xlab="")
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0))
-abline(v=seq(0,4000,500),lwd=1)
-abline(v=seq(0,4000,500),lwd=0.25)
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)")
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP")
-abline(v=seq(0,4000,500),lwd=0.25)
-abline(v=seq(0,4000,500),lwd=0.25)
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),xaxt="n",yaxt="n",ylab="",xlab="",fillCols=rep("gray30",length(bone.calybp)))
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray50",length(bone.calybp)))
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray50",length(bone.calybp)),las=1)
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray50",length(bone.calybp)),las=1)
-XX<-BchronCalibrate(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth)#
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray50",length(bone.calybp)),las=1)#
-abline(v=seq(0,4000,500),lwd=0.25)
-WL<-read.csv("~/Google Drive/1 Stanford postdoc/Waterfall Locality/Waterfall_14C.csv")#
-XX<-BchronCalibrate(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth)#
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray50",length(bone.calybp)),las=1)#
-abline(v=seq(0,4000,500),lwd=0.25)
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray60",length(XX)),las=1)#
-abline(v=seq(0,4000,500),lwd=0.25)
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),xaxt="n",yaxt="n",ylab="",xlab="",fillCols=rep("gray30",length(bone.calybp)))
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray60",length(XX)),las=1,main="")
-abline(v=seq(0,4000,500),lwd=0.25)
-plot(bone.calybp,withPositions=T,xlim=c(3500,0),ylim=c(200,0),xaxt="n",yaxt="n",ylab="",xlab="",fillCols=rep("gray30",length(bone.calybp)),main="")
-depths<-c(26,40,47,50,51,53,57,59,61,69,62,78,90,93,98,115,126,169,188,193,199)
-abline(h=depths)
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray60",length(XX)),las=1,main="")
-abline(h=depths)
-am<-Bchronology(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth,jitterPositions=T)
-WL
-ac100<-eighttwotab[which(eighttwotab[,1]==1),]#
-ac250<-eighttwotab[which(eighttwotab[,2]==1),]#
-ac500<-eighttwotab[which(eighttwotab[,3]==1),]#
-map_dl(pol_dlx,X,Y,add=F,return.table=F,col="gray70")#
-points(ac500[,4],ac500[,5],pch=16,col=rgb(1,1,0,1))#
-points(ac250[,4],ac250[,5],pch=16,col=rgb(1,0.5,0,1))#
-points(ac100[,4],ac100[,5],pch=16,col=rgb(1,0,0,1))#
-ac100<-fourtwotab[which(fourtwotab[,1]==1),]#
-ac250<-fourtwotab[which(fourtwotab[,2]==1),]#
-ac500<-fourtwotab[which(fourtwotab[,3]==1),]#
-map_dl(pol_dlx,X,Y,add=F,return.table=F,col="gray70")#
-points(ac500[,4],ac500[,5],pch=16,col=rgb(1,1,0,1))#
-points(ac250[,4],ac250[,5],pch=16,col=rgb(1,0.5,0,1))#
-points(ac100[,4],ac100[,5],pch=16,col=rgb(1,0,0,1))
-X<-c(-160,-50)#
-Y<-c(10,89.99)#
-map_dl(pol_dly,X,Y,add=FALSE,col="blue",label.sites=FALSE,return.table=F)#
-map_dl(pol_dl_s3,X,Y,add=T,col="green",label.sites=FALSE,return.table=F)
-ac100<-eighttwotab[which(eighttwotab[,1]==1),]#
-ac250<-eighttwotab[which(eighttwotab[,2]==1),]#
-ac500<-eighttwotab[which(eighttwotab[,3]==1),]#
-map_dl(pol_dlx,X,Y,add=F,return.table=F,col="gray70")#
-points(ac500[,4],ac500[,5],pch=16,col=rgb(1,1,0,1))#
-points(ac250[,4],ac250[,5],pch=16,col=rgb(1,0.5,0,1))#
-points(ac100[,4],ac100[,5],pch=16,col=rgb(1,0,0,1))
-ac100<-fourtwotab[which(fourtwotab[,1]==1),]#
-ac250<-fourtwotab[which(fourtwotab[,2]==1),]#
-ac500<-fourtwotab[which(fourtwotab[,3]==1),]#
-map_dl(pol_dlx,X,Y,add=F,return.table=F,col="gray70")#
-points(ac500[,4],ac500[,5],pch=16,col=rgb(1,1,0,1))#
-points(ac250[,4],ac250[,5],pch=16,col=rgb(1,0.5,0,1))#
-points(ac100[,4],ac100[,5],pch=16,col=rgb(1,0,0,1))
-step<- -250#
-ageolder<-10000#
-iter<-100#
-par(mfrow=c(2,1),mar=c(1,6,1,1),oma=c(6,1,1,1))#
-plotacs(multi.bcp,step,iter,ageolder)#
-abline(v=seq(0,ageolder,1000),lwd=0.25)#
-plotacs(multi.coniss,step,iter,ageolder)#
-abline(v=seq(0,ageolder,1000),lwd=0.25)
-tally.iter_am
-min(tally.iter_am)
-tally.iter_ac
-colSums(tally.iter_ac)
-bins
-sample(bins,size=994,replace=T)
-table(sample(bins,size=994,replace=T))
-tally.iter_am
-(tally.iter_am)
-colSums(tally.iter_ac)
-rowSums(tally.iter_ac)
-bins
-tally_cor<-tally.iter_ac/tally.iter_am
-tally_cor
-?apply
-length(bins)
-apply(tally_cor,2,mean)
-mean(tally_cor)
-step<- -250#
-ageolder<-10000#
-iter<-100#
-par(mfrow=c(2,1),mar=c(1,6,1,1),oma=c(6,1,1,1))#
-plotacs(multi.bcp,step,iter,ageolder)#
-abline(v=seq(0,ageolder,1000),lwd=0.25)#
-plotacs(multi.coniss,step,iter,ageolder)#
-abline(v=seq(0,ageolder,1000),lwd=0.25)
-WLnisp<-read.csv("~/Google Drive/1 Stanford postdoc/Waterfall Locality/2019 updated ms/Data/WL_NISP.csv")
-head(WLnisp)
-WLnisp[WLnisp==NA]
-WLnisp[which(WLnisp==NA)]
-WLnisp[is.na(WLnisp)]
-which(is.na(WLnisp))
-WLnisp[which(is.na(WLnisp))]<-0
-WLnisp[NA]<-0
-WLnisp
-is.na(WLnisp)
-WLnisp[is.na(WLnisp)]<-0
-WLnisp
-dim(WLnisp)
-WLtax<-WLnisp[,c(2:33)]
-WLtax<-WLnisp[,c(2:20)]
-WLnisp[,c(2:20)]
-WLtax<-WLnisp[,c(2:18)]
-WLtax
-rowSums(Wltax)
-rowSums(WLtax)
-order[rowSums(WLtax)]
-order(rowSums(WLtax))
-WLtax[order(rowSums(WLtax)),]
-rownames(WLtax)<-WLnisp[,1]
-WLtax
-WLtax[order(rowSums(WLtax)),]
-WLtax<-WLtax[order(rowSums(WLtax)),]
-rowSums(WLtax)
-rowSums(WLtax)>0
-WLtax[rowSums(WLtax)>0,]
-WLtaxcc<-WLtax[rowSums(WLtax)>0,]
-dim(WLtaxcc)
+BchronCalibrate(ages=2815,ageSds=140,calCurves="intcal13")
+x<-BchronCalibrate(ages=2815,ageSds=140,calCurves="intcal13")
+summary(x)
+plotx
+plot(x)
+80000-26700
+60691-3500
+10.96+39.13+12.52+10.96+39.13
+112.7*6
+112.7*16
+112.7*26
+10368+4147
+67367-14515
+47608-53300
+12.52+39.13
+5700/52
+110/2
+126+55
+# could try with MNI rather than NISP#
+#
+library(rioja)#
+library(princurve)#
+library(vegan)#
+#
+data.table<-"~/Google Drive/1 Stanford postdoc/Vertebrate Research/Waterfall Locality/2019 updated ms/Data/WL_smallmammals.csv"#
+#data.table<-"~/Google Drive/1 Stanford postdoc/Vertebrate Research/Waterfall Locality/2019 updated ms/Data/WL_NISP.csv"
+WLnisp<-read.csv(data.table)#
+WLnisp[is.na(WLnisp)]<-0#
 WLtax<-WLnisp[,c(2:18)]#
 rownames(WLtax)<-WLnisp[,1]#
-#WLtax<-WLtax[order(rowSums(WLtax)),]#
-WLtaxcc<-WLtax[rowSums(WLtax)>0,
-]
-taxj<-WLtaxcc[j,]
-plot(taxj)
-WLtaxcc[j,]
-plot(taxj,c(1;ncol(WLtaxcc)))
-plot(taxj,c(1:ncol(WLtaxcc)))
-taxj
-WLtaxcc[j,]
-as.vector(WLtaxcc[j,])
-plot(taxj,c(1:ncol(WLtaxcc)),type="l")
-plot(taxj,c(1:length(taxj)),type="l")
-plot(taxj,c(1:length(taxj)))
-c(1:length(taxj))
-taxj
-WLtaxcc[[j,]]
+WLtax<-WLtax[order(rowSums(WLtax)),]#
 WLtaxcc<-as.matrix(WLtax[rowSums(WLtax)>0,])
 WLtaxcc
-WLtaxcc[j,]
-taxj<-WLtaxcc[j,]
-plot(taxj,c(1:length(taxj)))
-plot(taxj,c(1:length(taxj)),type="l")
-par(mfrow=c(2,10))#
-for (j in 1:nrow(WLtaxcc)){#
-	taxj<-WLtaxcc[j,]#
-	if (j==1){#
-		choose="s"#
-	} else {#
-		choose="n"#
+permute.pollen.cor<-function(datamatx,cor.vect,n){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[k,]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[j,]#
+			cor.out<-cor.test(vect1,vect2,method="spearman")#
+			rhos[k,j]<-cor.out$estimate[[1]]#
+			ps[k,j]<-cor.out$p.value[[1]]#
+		}#
 	}#
-	plot(taxj,c(1:length(taxj)),type="l",yaxt=choose)#
+	out<-list(rhos,ps)#
+	return(out)#
 }
-par(mfrow=c(2,5))#
-for (j in 1:nrow(WLtaxcc)){#
-	taxj<-WLtaxcc[j,]#
-	if (j==1){#
-		choose="s"#
-	} else {#
-		choose="n"#
+permute.pollen.cor(WLtaxcc)
+permute.pollen.cor<-function(datamatx){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[k,]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[j,]#
+			cor.out<-cor.test(vect1,vect2,method="spearman")#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			ps[j,k]<-cor.out$p.value[[1]]#
+		}#
 	}#
-	plot(taxj,c(1:length(taxj)),type="l",yaxt=choose)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
 }
-par(mfrow=c(2,10),mar=c(1,0,1,0),oma=c(4,4,1,1))#
-for (j in 1:nrow(WLtaxcc)){#
-	taxj<-WLtaxcc[j,]#
-	if (j==1){#
-		choose="s"#
-	} else {#
-		choose="n"#
+permute.pollen.cor(WLtaxcc)
+permute.pollen.cor<-function(datamatx){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[k,]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[j,]#
+			cor.out<-cor.test(vect1,vect2,method="spearman")#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			ps[j,k]<-cor.out$p.value[[1]]#
+		}#
 	}#
-	plot(taxj,c(1:length(taxj)),type="l",yaxt=choose)#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-rownames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
 }
-par(mfrow=c(2,10),mar=c(1,0,1,0),oma=c(4,4,1,1))#
-for (j in 1:nrow(WLtaxcc)){#
-	taxj<-WLtaxcc[j,]#
-	if (j==1){#
-		choose="s"#
-	} else {#
-		choose="n"#
-	}#
-	plot(taxj,c(1:length(taxj)),type="l",yaxt=choose)#
-	mtext(rownames(WLtaxcc)[j],3)#
-}
-par(mfrow=c(2,10),mar=c(1,0,1,0),oma=c(4,4,1,1))#
-for (j in 1:nrow(WLtaxcc)){#
-	taxj<-WLtaxcc[j,]#
-	if (j==1){#
-		choose="s"#
-	} else {#
-		choose="n"#
-	}#
-	plot(taxj,c(1:length(taxj)),type="l",yaxt=choose)#
-	mtext(rownames(WLtaxcc)[j],3,cex=0.6)#
-}
+permute.pollen.cor(WLtaxcc)
+rownames(datamatx)
+rownames(WLtaxcc)
 WLtaxcc
-WLpct<-WLtaxcc/rowSums(WLtaxcc)
-WLvar<-WLpct#
-par(mfrow=c(2,10),mar=c(1,0,1,0),oma=c(4,4,1,1))#
-for (j in 1:nrow(WLvar)){#
-	taxj<-WLvar[j,]#
-	if (j==1){#
-		choose="s"#
-	} else {#
-		choose="n"#
+permute.pollen.cor<-function(datamatx){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[k,]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[j,]#
+			cor.out<-cor.test(vect1,vect2,method="spearman")#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			ps[j,k]<-cor.out$p.value[[1]]#
+		}#
 	}#
-	plot(taxj,c(1:length(taxj)),type="l",yaxt=choose)#
-	mtext(rownames(WLvar)[j],3,cex=0.6)#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-rownames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
 }
-distmatx<-dist(sqrt(WLpct),method="euclidean")
-WLconiss<-chclust(distmatx)
-plot(WLconiss)
-WLpct
-distmatx<-dist(sqrt(t(WLpct)),method="euclidean")
-WLconiss<-chclust(distmatx)
-plot(WLconiss)
-bstick(WLconiss)
-library(principalcurve)
-library(principlecurve)
-library(principlecurves)
-library(principlecurve)
-library(princurve)
-principleCurve(sqrt(t(WLpct))
-principleCurve(sqrt(t(WLpct)))
-principleCurve(sqrt(t(WLpct)))
-principlecurve(sqrt(t(WLpct)))
-principalcurve(sqrt(t(WLpct)))
-principal.curve(sqrt(t(WLpct)))
-pcWL<-principal.curve(sqrt(t(WLpct)))
-pcWL<-principal_curve(sqrt(t(WLpct)))
-pcWL$lambda
+permute.pollen.cor<-function(datamatx){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[k,]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[j,]#
+			cor.out<-cor.test(vect1,vect2,method="spearman")#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			ps[j,k]<-cor.out$p.value[[1]]#
+		}#
+	}#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
+}
+permute.pollen.cor(t(WLtaxcc))
+permute.pollen.cor<-function(datamatx){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[,k]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[,j]#
+			cor.out<-cor.test(vect1,vect2,method="spearman")#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			ps[j,k]<-cor.out$p.value[[1]]#
+		}#
+	}#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
+}
+permute.pollen.cor(t(WLtaxcc))
+permute.pollen.cor((WLtaxcc))
+ibrary(roxygen2)#
+library(devtools)
+library(devtools)
+library(roxygen2)
+setwd("~/Desktop/Research_Git/NeotomaRfns")#
+document()
+pairwise_correlation<-function(datamatx,method){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[,k]#
+		for (j in k:ncol(datamatx)){#
+			vect2<-datamatx[,j]#
+			cor.out<-cor.test(vect1,vect2,method=method)#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			ps[j,k]<-cor.out$p.value[[1]]#
+		}#
+	}#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
+}
+pairwise_correlation(WLtaxcc,"spearman")
+setwd("~/Desktop/Research_Git/NeotomaRfns")
+document()
+library(NeotomaRfns)
+pairwise_spearman(WLtaxcc,"spearman")
+pairwise_correlation(WLtaxcc,"spearman")
+WLspear<-pairwise_correlation(WLtaxcc,"spearman")
+which(WLspear[[2]]<0.05)
+nonsig<-which(WLspear[[2]]>0.05)
+WLspear[[1]][nonsig]
+WLspear[[1]][nonsig]<-NA
+WLspear[[1]]
+WLspear[[2]][nonsig]<-NA
+WLspear<-pairwise_correlation(t(WLtaxcc),"spearman")
+WLspear
+nonsig<-which(WLspear[[2]]>0.05)#
+#
+WLspear[[1]][nonsig]<-NA#
+WLspear[[2]][nonsig]<-NA
+WLspear[[1]]
+2^25
+25^2
+25+24+23+22+21+20+19+18+17+16+15+14+13+12+11+10+9+8+7+6+5+4+3+2+1
+(ncol(datamatx)*(ncol(datamatx)+1))/2
+datamatx<-WLtaxcc
+(ncol(datamatx)*(ncol(datamatx)+1))/2
+(ncol(datamatx)*(ncol(datamatx)+1))
+ncol(datamatx)
+datamatx<-t(WLtaxcc)
+(ncol(datamatx)*(ncol(datamatx)+1))
+ncol(datamatx)
+ncol(datamatx)+1)
+(ncol(datamatx)*(ncol(datamatx)+1))/2
+25+24+23+22+21+20+19+18+17+16+15+14+13+12+11+10+9+8+7+6+5+4+3+2+1+26+27+28
+pairwise_correlation<-function(datamatx,method,pval.adjust=F){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:ncol(datamatx)){#
+		vect1<-datamatx[,k]#
+		for (j in (k+1):ncol(datamatx)){#
+			vect2<-datamatx[,j]#
+			cor.out<-cor.test(vect1,vect2,method=method)#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			if(pval.adjust==T){#
+				n.tests<-(ncol(datamatx)*(ncol(datamatx)+1))/2#
+				ps[j,k]<-p.adjust(cor.out$p.value[[1]],method="holm",n=n.tests)#
+			} else {#
+				ps[j,k]<-cor.out$p.value[[1]]#
+			}#
+		}#
+	}#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
+}
+WLspear<-pairwise_correlation(t(WLtaxcc),"spearman")
+WLspear<-pairwise_correlation(t(WLtaxcc),"spearman",T)
+pairwise_correlation<-function(datamatx,method,pval.adjust=F){#
+	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
+	for (k in 1:(ncol(datamatx)-1)){#
+		vect1<-datamatx[,k]#
+		for (j in (k+1):ncol(datamatx)){#
+			vect2<-datamatx[,j]#
+			cor.out<-cor.test(vect1,vect2,method=method)#
+			rhos[j,k]<-cor.out$estimate[[1]]#
+			if(pval.adjust==T){#
+				n.tests<-(ncol(datamatx)*(ncol(datamatx)+1))/2#
+				ps[j,k]<-p.adjust(cor.out$p.value[[1]],method="holm",n=n.tests)#
+			} else {#
+				ps[j,k]<-cor.out$p.value[[1]]#
+			}#
+		}#
+	}#
+	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
+	out<-list(rhos=rhos,ps=ps)#
+	return(out)#
+}
+WLspear<-pairwise_correlation(t(WLtaxcc),"spearman",T)
+WLspear
+WLspear<-pairwise_correlation(t(WLtaxcc),"spearman")
+WLspear
+WLspear<-pairwise_correlation(t(WLtaxcc),"spearman",T)
+nonsig<-which(WLspear[[2]]>0.05)#
+#
+WLspear[[1]][nonsig]<-NA#
+WLspear[[2]][nonsig]<-NA
+WLspear[[1]]
+# ordinations#
+pcWL<-principal_curve(sqrt(t(WLpct)))#
+plot(pcWL$lambda,type="l")#
+#
+WLpca<-prcomp(sqrt((WLpct)))#
+ordiplot(WLpca,type="text")
+WLpct<-matrix(NA,nr=nrow(WLtaxcc),nc=ncol(WLtaxcc))#
+for (k in 1:ncol(WLtaxcc)){#
+	WLpct[,k]<-WLtaxcc[,k]/sum(WLtaxcc[,k])#
+}#
+rownames(WLpct)<-rownames(WLtaxcc)#
+colnames(WLpct)<-colnames(WLtaxcc)
+# ordinations#
+pcWL<-principal_curve(sqrt(t(WLpct)))#
+plot(pcWL$lambda,type="l")#
+#
+WLpca<-prcomp(sqrt((WLpct)))#
+ordiplot(WLpca,type="text")
 plot(pcWL$lambda,type="l")
-WLpca<-prcomp(sqrt(t(WLpct)))
 ordiplot(WLpca,type="text")
-WLpca<-prcomp(sqrt((WLpct)))
-ordiplot(WLpca,type="text")
-WLvar<-WLpct
-WLvar
-cor.test(tax1,tax2)
-i=1
-j=2
-k=3
-tax1<-WLvar[j,]
-tax2<-WLvar[k,]
-cor(tax1,tax2,method="spearman")
-cor.test(tax1,tax2,method="spearman")
-ps[j,k]<-cor.out$p.value
-cor.out$p.value
-cor.out<-cor.test(tax1,tax2,method="spearman")
-cor.out$p.value
-cor.out$estimate
-cor.out$estimate[1]
-cor.out$estimate[[1]]
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-for (j in 1:nrow(WLvar)){#
-	tax1<-WLvar[j,]#
-	for (k in j:nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[j,k]<-cor.out$p.value#
-		rhos[j,k]<-cor.out$estimate[[1]]#
-	}#
+#iterate.index<-c()#
+simps<-c()#
+shans<-c()#
+PIEs<-c()#
+for (k in 1:ncol(WLtaxcc)){#
+	diversity.k<-WLtaxcc[,k]#
+	simpk<-diversity(as.numeric(as.character(diversity.k)),index="simpson")#
+	shank<-diversity(as.numeric(as.character(diversity.k)),index="shannon")#
+	div<-as.numeric(as.character(diversity.k))#
+	D<-1/(diversity(div,index="invsimpson"))#
+	sample.size=sum(diversity.k)#
+	PIE<-(1-D)*(sample.size/(sample.size-1))#
+	indicesk<-c(simpk,shank,PIE)#
+	#iterate.index<-rbind(indicesk,iterate.index)#
+	simps<-c(simpk,simps)#
+	shans<-c(shank,shans)#
+	PIEs<-c(PIE,PIEs)#
 }
-rownames(rhos)<-rownames(ps)<-rownames(WLvar)
-rhos
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-for (j in 1:nrow(WLvar)){#
-	tax1<-WLvar[j,]#
-	for (k in j:nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[k,j]<-cor.out$p.value#
-		rhos[k,j]<-cor.out$estimate[[1]]#
-	}#
-}
-rhos
-rownames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(rhos)<-rownames(WLvar)
-rhos
-length(is.na(ps))
-p.adjust(ps,method="Holm",n=length(!is.na(ps)))
-p.adjust(ps,method="holm",n=length(!is.na(ps)))
-holm.ps<-p.adjust(ps,method="holm",n=length(!is.na(ps)))
-which(holm.ps<0.05)
-holm.ps
-rhos
-length(!is.na(ps)
-)
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-adjps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-for (j in 1:nrow(WLvar)){#
-	tax1<-WLvar[j,]#
-	for (k in j:nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[k,j]<-cor.out$p.value#
-		adjps[k,j]<-p.adjust(cor.out$p.value,method="holm",n=1089)#
-		rhos[k,j]<-cor.out$estimate[[1]]#
-	}#
-}
-adjps
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-adjps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-for (j in 1:nrow(WLvar)){#
-	tax1<-WLvar[j,]#
-	for (k in j+1:nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[k,j]<-cor.out$p.value#
-		adjps[k,j]<-p.adjust(cor.out$p.value,method="holm",n=1089)#
-		rhos[k,j]<-cor.out$estimate[[1]]#
-	}#
-}
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-adjps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-for (j in 1:c(nrow(WLvar)-1)){#
-	tax1<-WLvar[j,]#
-	for (k in c(j+1):nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[k,j]<-cor.out$p.value#
-		adjps[k,j]<-p.adjust(cor.out$p.value,method="holm",n=1089)#
-		rhos[k,j]<-cor.out$estimate[[1]]#
-	}#
-}
-warnings()
-rhos
-adjps
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-adjps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-sig.matx<-c()#
-for (j in 1:c(nrow(WLvar)-1)){#
-	tax1<-WLvar[j,]#
-	for (k in c(j+1):nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[k,j]<-cor.out$p.value#
-		adjp<-p.adjust(cor.out$p.value,method="holm",n=1089)#
-		adjps[k,j]<-adjp#
-		rhos[k,j]<-cor.out$estimate[[1]]#
-		if (adjp<0.05){#
-			signif<-c(rownames(WLvar)[j],rownames(WLvar)[k],cor.out$estimate[[1]])#
-			sig.matx<-rbind(sig.matx,signif)#
+PIEs
+shans
+pie.quant<-matrix(NA,nr=ncol(WLtaxcc),nc=3)#
+for (j in 1:ncol(WLtaxcc)){#
+	L.abund<-WLtaxcc[,j]#
+	iterations=100#
+	#sample.size=sum(L.abund)#
+	sample.size=15#
+	if (sum(L.abund)<sample.size){#
+		pie.quant[j,]<-c(NA,NA,NA) #
+	} else {#
+	iteration.table<-c()#
+	for (i in 1:iterations) {#
+		spp.names.vector<-c()#
+		for (k in 1:length(L.abund)){#
+			k.spp.names<-c(rep(names(L.abund[k]),times=L.abund[k]))#
+			spp.names.vector<-c(k.spp.names,spp.names.vector)#
 		}#
-	}#
-}
-sig.matx
-ps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-adjps<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-rhos<-matrix(NA,nr=nrow(WLvar),nc=nrow(WLvar))#
-sig.matx<-c()#
-for (j in 1:c(nrow(WLvar)-1)){#
-	tax1<-WLvar[j,]#
-	for (k in c(j+1):nrow(WLvar)){#
-		tax2<-WLvar[k,]#
-		cor.out<-cor.test(tax1,tax2,method="spearman")#
-		ps[k,j]<-cor.out$p.value#
-		adjp<-p.adjust(cor.out$p.value,method="holm",n=1089)#
-		adjps[k,j]<-adjp#
-		rhos[k,j]<-cor.out$estimate[[1]]#
-		if (adjp<0.05){#
-			signif<-c(rownames(WLvar)[j],rownames(WLvar)[k],cor.out$estimate[[1]],adjp)#
-			sig.matx<-rbind(sig.matx,signif)#
+		runi<-sample(spp.names.vector,size=sample.size,replace=FALSE)#
+		iterationi<-(cbind(table(runi),rep(i,times=length(table(runi)))))#
+		iteration.i<-(cbind(rownames(iterationi),iterationi))#
+		names(iteration.i)<-c("taxon","sample","iteration")#
+		if (length(rownames(iteration.i))==length(colnames(L.abund))){#
+			iteration.i.plus<-iteration.i#
+		} else {#
+			spp.not.sampled<-setdiff(names(L.abund),rownames(iteration.i))#
+			n.zeros<-rep(0,times=length(spp.not.sampled))#
+			n.is<-rep(i,times=length(spp.not.sampled))#
+			add.rows<-cbind(spp.not.sampled,n.zeros,n.is)#
+			rownames(add.rows)<-spp.not.sampled#
+			names(add.rows)<-c("taxon","sample","iteration")#
+			iteration.i.plus<-rbind(add.rows,iteration.i)#
 		}#
+		iteration.table<-(rbind(iteration.table,iteration.i.plus))#
+		rownames(iteration.table)<-c(1:nrow(iteration.table))#
+		iteration.table.df<-as.data.frame(iteration.table)#
 	}#
+#
+	iterate.index<-c()#
+	simps<-c()#
+	shans<-c()#
+	PIEs<-c()#
+	for (k in 1:iterations){#
+	diversity.k<-(iteration.table.df[(iteration.table.df[,3])==k,])#
+	simpk<-diversity(as.numeric(as.character(diversity.k[,2])),index="simpson")#
+	shank<-diversity(as.numeric(as.character(diversity.k[,2])),index="shannon")#
+	div<-as.numeric(as.character(diversity.k[,2]))#
+	D<-1/(diversity(div,index="invsimpson"))#
+	PIE<-(1-D)*(sample.size/(sample.size-1))#
+	indicesk<-c(simpk,shank,PIE)#
+	iterate.index<-rbind(indicesk,iterate.index)#
+	simps<-c(simpk,simps)#
+	shans<-c(shank,shans)#
+	PIEs<-c(PIE,PIEs)#
+	}#
+colnames(iterate.index)<-c("simp","shan","PIE")#
+#
+pie.quant[j,]<-as.vector(quantile(PIEs,c(0.025,0.5,0.975)))#
+#
+}#
 }
-sig.matx
-t(WLvar)
-tWL<-t(WLvar)
-sig.matx
-tWL[,(sig.matx[1,c(1:2)])]
-i=1
-plot(tWL[,(sig.matx[i,c(1:2)])])
-dim(sgi.matx)
-dim(sig.matx)
-par(mfrow=c(3,3),mar=c(1,1,1,1))#
-for (i in 1:nrow(sig.matx)){#
-	plot(tWL[,(sig.matx[i,c(1:2)])])#
+plot(1:length(WLlevels),pie.quant[,2],pch=16,ylim=c(0.5,1),xaxt="n")#
+segments(x0=1:length(WLlevels),x1=1:length(WLlevels),y0=pie.quant[,1],y1=pie.quant[,3])#
+axis(1,at=1:length(WLlevels),labels=WLlevels)
+WLlevels<-colnames(WLvar)
+WLvar<-WLpct#
+WLlevels<-colnames(WLvar)
+pie.quant<-matrix(NA,nr=ncol(WLtaxcc),nc=3)#
+for (j in 1:ncol(WLtaxcc)){#
+	L.abund<-WLtaxcc[,j]#
+	iterations=100#
+	#sample.size=sum(L.abund)#
+	sample.size=15#
+#
+	if (sum(L.abund)<sample.size){#
+		pie.quant[j,]<-c(NA,NA,NA) #
+	} else {#
+	iteration.table<-c()#
+	for (i in 1:iterations) {#
+		spp.names.vector<-c()#
+		for (k in 1:length(L.abund)){#
+			k.spp.names<-c(rep(names(L.abund[k]),times=L.abund[k]))#
+			spp.names.vector<-c(k.spp.names,spp.names.vector)#
+		}#
+		runi<-sample(spp.names.vector,size=sample.size,replace=FALSE)#
+		iterationi<-(cbind(table(runi),rep(i,times=length(table(runi)))))#
+		iteration.i<-(cbind(rownames(iterationi),iterationi))#
+		names(iteration.i)<-c("taxon","sample","iteration")#
+		if (length(rownames(iteration.i))==length(colnames(L.abund))){#
+			iteration.i.plus<-iteration.i#
+		} else {#
+			spp.not.sampled<-setdiff(names(L.abund),rownames(iteration.i))#
+			n.zeros<-rep(0,times=length(spp.not.sampled))#
+			n.is<-rep(i,times=length(spp.not.sampled))#
+			add.rows<-cbind(spp.not.sampled,n.zeros,n.is)#
+			rownames(add.rows)<-spp.not.sampled#
+			names(add.rows)<-c("taxon","sample","iteration")#
+			iteration.i.plus<-rbind(add.rows,iteration.i)#
+		}#
+		iteration.table<-(rbind(iteration.table,iteration.i.plus))#
+		rownames(iteration.table)<-c(1:nrow(iteration.table))#
+		iteration.table.df<-as.data.frame(iteration.table)#
+	}#
+#
+	iterate.index<-c()#
+	simps<-c()#
+	shans<-c()#
+	PIEs<-c()#
+	for (k in 1:iterations){#
+	diversity.k<-(iteration.table.df[(iteration.table.df[,3])==k,])#
+	simpk<-diversity(as.numeric(as.character(diversity.k[,2])),index="simpson")#
+	shank<-diversity(as.numeric(as.character(diversity.k[,2])),index="shannon")#
+	div<-as.numeric(as.character(diversity.k[,2]))#
+	D<-1/(diversity(div,index="invsimpson"))#
+	PIE<-(1-D)*(sample.size/(sample.size-1))#
+	indicesk<-c(simpk,shank,PIE)#
+	iterate.index<-rbind(indicesk,iterate.index)#
+	simps<-c(simpk,simps)#
+	shans<-c(shank,shans)#
+	PIEs<-c(PIE,PIEs)#
+	}#
+colnames(iterate.index)<-c("simp","shan","PIE")#
+#
+pie.quant[j,]<-as.vector(quantile(PIEs,c(0.025,0.5,0.975)))#
+#
+}#
 }
-plot(tWL[,(sig.matx[i,c(1:2)])],pch=16)
-par(mfrow=c(3,3),mar=c(1,1,1,1))#
-for (i in 1:nrow(sig.matx)){#
-	plot(tWL[,(sig.matx[i,c(1:2)])],pch=16)#
-}
+plot(1:length(WLlevels),pie.quant[,2],pch=16,ylim=c(0.5,1),xaxt="n")#
+segments(x0=1:length(WLlevels),x1=1:length(WLlevels),y0=pie.quant[,1],y1=pie.quant[,3])#
+axis(1,at=1:length(WLlevels),labels=WLlevels)
+# CHRONOLOGY__________________________________#
+library(Bchron)#
+WL<-read.csv("~/Google Drive/1 Stanford postdoc/Vertebrate Research/Waterfall Locality/2019 updated ms/Data/Waterfall_14C.csv")#
+#
+# calibrate all dates
+am<-Bchronology(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth,jitterPositions=T)
+bone<-WL[which(WL$Material!="charcoal"),]#
+bone.calybp<-BchronCalibrate(ages=bone$X14C.Age,ageSds=bone$X14C.Err,calCurves=bone$cc,positions=bone$Depth)
+am<-Bchronology(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth,jitterPositions=T)
+WL$Depth
+?Bchronology
+setwd("~/Desktop/Research_Git/NeotomaRfns")#
+document()
+# calibrate all dates#
+XX<-BchronCalibrate(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth)#
+plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray60",length(XX)),las=1,main="")#
+abline(v=seq(0,4000,500),lwd=0.25)
