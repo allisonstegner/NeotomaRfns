@@ -12,7 +12,7 @@
 #' @author M. Allison Stegner
 #' @export
 
-map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE,cex=NULL){
 	require(maps)
 	lat<-c()
 	long<-c()
@@ -36,7 +36,7 @@ map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE){
 			map("state",add=T)
 			box()
 		} 
-		if (!is.null(col)) points(long,lat,pch=16,col=col)
+		if (!is.null(col)) points(long,lat,pch=16,col=col,cex=cex)
 		else points(long,lat,pch=1)
 
 		if (label.sites==TRUE) text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)

@@ -1,829 +1,1710 @@
-# set fossil exclusion criteria______________________________________#
-min.samp<-20 #minimum number of samples in time series, regardless of resolution#
-max.resolution<-2000 #mean resolution (#samples/time must be this value or lower)#
-#max.chron.grain<-3000  # must be 1 chron control per this number of years #
-prop.length.cutoff<-0.7 #sites with hiatuses longer that this proportion will be flagged and info about time segments before and after each hiatus will be collected#
-ageolder<-7000#
-ageyounger<-3000#
-max.grain<-500#
+sitesxspp.matx<-matrix(NA,nr=length(all_taxa),nc=length(polss.dl))#
+for (k in 1:length(polss.dl)){#
+	print(k)#
 #
-# Limit to sites that have bulk_baconzing age models___________#
-path="~/Desktop/Research_Git/PrairieForestEcotone_Resilience/Cores"#
+	polk<-polss.dl[[k]]$counts#
+	missingspp<-setdiff(all_taxa,colnames(polk))#
+	zeros<-rep(0,length(missingspp))#
+	names(zeros)<-missingspp#
+	polk.complete<-c(polk,zeros)#
+	pol.order<-order(names(polk.complete))#
+	sitesxspp.matx[,k]<-polk.complete[pol.order]#
+}#
+# sitesxspp.matx[,1:5]#
+rownames(sitesxspp.matx)<-sort(all_taxa)#
+colnames(sitesxspp.matx)<-names(polss.dl)
+sitesxspp.matx
+sitesxspp.matx[-"LYCOPODX",]
+sitesxspp.matx[-which(rownames(sitesxspp.matx)=="LYCOPODX"),]
+sitesxspp.matx<-sitesxspp.matx[-which(rownames(sitesxspp.matx)=="LYCOPODX"),]
+getwd()
+write.csv(sitesxspp.matx,"pollenss_sitesxspp.csv")
+# generate metadata#
+polmeta.tab<-matrix(NA,nr=length(polss.dl),nc=7)#
+for (i in 1:length(polss.dl)){#
+	polmeta.tab[i,1]<-polss.dl[[i]]$dataset$dataset.meta$dataset.id#
+	polmeta.tab[i,2]<-polss.dl[[i]]$dataset$site.data$site.name#
+	polmeta.tab[i,3]<-polss.dl[[i]]$dataset$site.data$site.id#
+	polmeta.tab[i,4]<-polss.dl[[i]]$dataset$site.data$long#
+	polmeta.tab[i,5]<-polss.dl[[i]]$dataset$site.data$lat#
+	polmeta.tab[i,6]<-polss.dl[[i]]$chronologies[[1]]$age.older[1]#
+	polmeta.tab[i,7]<-polss.dl[[i]]$chronologies[[1]]$age.younger[1]#
+}#
+colnames(polmeta.tab)<-c("dataset.id","site.name","site.id","long","lat","age.older","age.younger")
+polmeta.tab
+write.csv(polmeta.tab,"pollen_surfacesamp_metadata.csv",row.names=F)
+# generate metadata#
+meta.tab<-matrix(NA,nr=length(diadl),nc=9)#
+wc.dia.sites<-c()#
+polss.sites.all<-c()#
+diapol.dia.sites<-c()#
 #
-ds.ids<-matrix(NA,nr=length(pol_dl),nc=2)#
-for (j in 1:length(pol_dl)){#
-	pol_ds<-pol_dl[[j]]#
-	handlej<-pol_ds$dataset$dataset.meta$collection.handle # get site handle#
-	handle.path<-paste(path,"/",handlej,sep="") #
-	file.name<-dir(handle.path,pattern="posteriorout.csv") # use handle to import bacon iterations#
-	if (length(file.name)==0){ #
-		ds.ids[j,]<-c(NA,handlej)#
-	} else {#
-		ds.ids[j,]<-c(as.numeric(names(pol_dl[j])),handlej)#
+for (i in 1:length(diadl)){#
+	meta.tab[i,1]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+	meta.tab[i,2]<-diadl[[i]]$dataset$site.data$site.name#
+	meta.tab[i,3]<-diadl[[i]]$dataset$site.data$site.id#
+	meta.tab[i,4]<-diadl[[i]]$dataset$site.data$long#
+	meta.tab[i,5]<-diadl[[i]]$dataset$site.data$lat#
+	meta.tab[i,6]<-diadl[[i]]$chronologies[[1]]$age.older[1]#
+	meta.tab[i,7]<-diadl[[i]]$chronologies[[1]]$age.younger[1]#
+	sitei<-get_site(diadl[[i]]$dataset$site.data$site.id)#
+	sitedl<-get_download(sitei)#
+	dstype<-c()#
+	for (j in 1:length(sitedl)){#
+		dstype[j]<-sitedl[[j]]$dataset$dataset.meta$dataset.type#
 	}#
-}#
-#
-ds.ids<-ds.ids[complete.cases(ds.ids),]#
-pol_dl_s1<-pol_dl[ds.ids[,1]]#
-#
-# Limit to sites that cover the relevant period of time_____#
-#
-fullspan.ids<-c()#
-agemodel_means<-list()#
-all_ids<-c()#
-for (i in 1:length(pol_dl_s1)){#
-	#print(i)#
-	pol_ds<-pol_dl_s1[[i]]#
-	handlej<-pol_ds$dataset$dataset.meta$collection.handle # get site handle#
-	handle.path<-paste(path,"/",handlej,sep="") #
-	am.file<-dir(handle.path,pattern="ages.txt") #
-	am.path<-paste(handle.path,"/",am.file,sep="")#
-	am<-read.table(am.path,header=T)#
-	agemodel_means[[i]]<-am$mean#
-	all_ids[i]<-names(pol_dl_s1[i])#
-	minage<-min(am$min,na.rm=T)#
-	maxage<-max(am$max,na.rm=T)#
-	if (maxage>ageolder && minage<ageyounger){#
-		fullspan.ids<-c(fullspan.ids,names(pol_dl_s1[i]))#
-	} 	else { next }#
-}#
-names(agemodel_means)<-all_ids#
-pol_dl_s2<-pol_dl_s1[fullspan.ids]#
-#
-# limit to sites with at least n samples____________________#
-pol_n<-ts_min_length(pol_dl_s2,min.samp)#
-pol_n<-pol_n[complete.cases(pol_n)]#
-pol_dl_s3<-pol_dl_s2[as.character(pol_n)]#
-#
-# limit to sites with minimum level of average resolution___#
-pol_high<-select_high_res(pol_dl_s3,max.grain)#
-pol_dl_s4<-pol_dl_s3[as.character(pol_high$dataset.ids)]#
-#
-# limit to sites with no excessive hiatuses_________________#
-agemodels4<-agemodel_means[pol_high$dataset.ids]#
-hiatuses<-cut_hiatus_datasets(pol_dl_s4,prop.length.cutoff,agemodels4)#
-pol_dl_s5<-pol_dl_s4[as.character(hiatuses)]#
-pol_dlx<-pol_dl_s5#
-#
-# DOWNLOAD MODIS WOODY COVER DATA ###########################################
-# [See Zak Ratajczak's code]#
-#
-# import MODIS tree cover data__________________________________________#
-modis<-read.csv("~/Desktop/Research_Git/PrairieForestEcotone_Resilience/modis_tree_cover_paleo_pts.csv")
-# clean pollen#
-# restrict to the 80 pollen types (64-split) of Williams and Shuman (2008)#
-# Williams et al 2009 criteria:#
-# no analog if closest analgo SCD value was >0.3 (in which case no %WC was caluclated for the fossil sample)#
-# few analogs if the # of modern analogs was <7#
-# compile modern surface samples so that taxon names will match fossil names#
-ct.modpol<-compile_taxa(mod.pol,"WS64") # this runs slowly#
-all_taxa <- do.call(rbind.data.frame, lapply(ct.modpol, function(x)x$taxon.list[,1:6]))#
-all_taxa <- all_taxa[!duplicated(all_taxa),]#
-eco.taxa<-all_taxa[all_taxa$ecological.group %in% c("TRSH","UPHE"),] # restrict to upland herbd and trees/shrubs#
-trsh<-all_taxa[all_taxa$ecological.group %in% c("TRSH"),]#
-# write.csv(trsh,"trsh.csv")#
-trsh2<-read.csv("~/Desktop/Research_Git/PrairieForestEcotone_Resilience/trsh.csv")#
-tree<-trsh2[trsh2$grp %in% "TR",]#
-tree<-tree[,-2]#
-calc_mod_fos_scd<-function(polj,ct.polj,eco.taxa){#
-	ct.polj<-compile_taxa(polj,"WS64") # compile fossil taxa, as with surface samples#
-	polj_sub<-ct.polj$counts[,colnames(ct.polj$counts) %in% eco.taxa[,1]]#
-	polj.pct<-polj_sub/rowSums(polj_sub) #convert to percent#
-	# must generate taxon tables for modern and fossil that have same col names, and in the same order#
-	# must therefore inject 0s for unsampled types#
-	missingtypes<-setdiff(eco.taxa[,1],colnames(polj.pct))#
-	missingmatx<-matrix(data=0,nr=nrow(polj.pct),nc=length(missingtypes))#
-	colnames(missingmatx)<-missingtypes#
-	fullfosdata<-cbind(polj.pct,missingmatx)#
-	polj_full<-fullfosdata[,order(colnames(fullfosdata))]#
-	# WS used 63 of the pollen types with 14 of the types split into regional varieties.#
-	# Ambrosia not excluded#
-	# I simply used the WS64 list#
-	mod_fos_scd<-matrix(NA,nr=nrow(polj_full),nc=length(mod.pol))#
-	for (i in 1:nrow(polj_full)) {#
-		polj_timei<-polj_full[i,]		#
-		for (k in 1:length(mod.pol)){#
-			ct.modk<-ct.modpol[[k]]#
-        	modk.counts <- ct.modk$counts[,colnames(ct.modk$counts) %in% eco.taxa[,1]]#
-			modk.pct<-modk.counts/sum(modk.counts)#
-			missingtypes<-setdiff(colnames(polj_full),names(modk.pct))#
-			missingvect<-rep(0,length(missingtypes))#
-			names(missingvect)<-missingtypes#
-			fullmoddata<-c(modk.pct,missingvect)#
-			modk_full<-fullmoddata[order(names(fullmoddata))]#
-			# 1) Calculate distances between i and all modern samples#
-			# use square chord distance to measure compositional differences between modern and fossil pollen samples#
-			scddist<-analogue::distance(t(cbind(modk_full,polj_timei)),method="SQchord")#
-			mod_fos_scd[i,k]<-scddist[2,1]#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		wc.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id #flag sites that also have water chem data#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (j in 1:length(water.id)){#
+			waterdl.c<-sitedl[[water.id[j]]]$counts#
+			chem.types.sub<-colnames(waterdl.c)#
+			chem.types<-c(chem.types,chem.types.sub)#
 		}#
+		chem.types.full<-paste(unique(chem.types),sep=",",collapse=", ")#
+	} else {#
+		wc.dia.sites[i]<-NA#
+		chem.types.full<-NA#
 	}#
-	#mod_fos_scd<-analogue::distance(mod.pol.prop,polj_full,method="SQchord")#
-	colnames(mod_fos_scd)<-names(mod.pol)#
-	rownames(mod_fos_scd)<-rownames(polj_full)#
-	mod_fos_scd<-t(mod_fos_scd)#
-	return(mod_fos_scd)#
+	uni.dstype<-unique(dstype)#
+	meta.tab[i,8]<-paste(uni.dstype,sep=",",collapse=", ")#
+	meta.tab[i,9]<-chem.types.full#
+#
+	if (sum(dstype %in% "pollen surface sample")>0) {#
+		diapol.dia.sites[i]<-diadl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+		pol.id<-which(dstype=="pollen surface sample")#
+		polss<-c()#
+		for (j in 1:length(pol.id)){#
+			polss[j]<-sitedl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+		}#
+	} else {#
+		polss<-NA#
+	}#
+	polss.sites.all<-c(polss.sites.all,polss)#
 }#
+colnames(meta.tab)<-c("dataset.id","site.name","site.id","long","lat","age.older","age.younger","other.datasets","water.chemistry")
+diapol.dia.sites
+# generate metadata#
+meta.tab<-matrix(NA,nr=length(diadl),nc=9)#
+wc.dia.sites<-c()#
+polss.sites.all<-c()#
+diapol.dia.sites<-c()#
 #
-find_scd_matches<-function(mod_fos_scd,threshold,N,WC){#
- 	matches<-array(NA,dim=c(ncol(mod_fos_scd),7,4))#
- 	avgWC<-matrix(NA,nr=ncol(mod_fos_scd),nc=2)#
- 	for (i in 1:ncol(mod_fos_scd)){#
- 		# print(i)#
- 		coli<-mod_fos_scd[,i]#
- 		# 2) Discard modern samples with Dij>threshold (d)#
-		# 3) Of remaining samples, keep N best analogs#
- 		nampd.matches<-sort(coli[which(coli<threshold)])[1:N]#
- 		ids<-as.numeric(names(nampd.matches))	#
- 		idsO<-order(ids)#
- 		nampd.matchesO<-nampd.matches[idsO]#
- 		IDs<-ids[idsO]#
- 		matches[i,,1]<-as.numeric(nampd.matchesO)#
- 		matches[i,,2]<-ids[idsO]#
- 		AP<-c()#
- 		for (k in 1:length(IDs)){#
- 			pol<-ct.modpol[as.character(IDs[k])][[1]]$counts#
- 			AP[k]<-sum(pol[which(colnames(pol) %in% tree$taxon.name)]/sum(pol))#
- 		}#
- 		matches[i,,4]<-AP#
- 		WCsub<-WC[WC$dataset.id %in% ids,]#
- 		if (nrow(WCsub)<N){#
- 			NAtail<-rep(NA,N-nrow(WCsub))#
- 			treecov<-c(WCsub$tree_cover,NAtail)#
- 		} else {#
- 			treecov<-WCsub$tree_cover#
- 		}#
- 		matches[i,,3]<-treecov#
- 		fos_time<-colnames(mod_fos_scd)[i]#
- 		# 4) calculate unweighted mean of tree cover for acceptable analogs#
- 		meanWC<-mean(WCsub$tree_cover,na.rm=T)#
- 		avgWC[i,]<-c(fos_time,meanWC) 		#
- 	}#
- 	# generate an array: #
- 	# rows=with fossil time bins #
- 	# lowest N scd values as cols#
- 	# [,,1] = SCD values, [,,2]=NAMPD site indices, [,,3]=% tree cover from modis, [,,4] = %AP from pollen#
- 	avgWC<-as.data.frame(avgWC)#
- 	out<-list(avgWC,matches)#
- 	return(out)	#
+for (i in 1:length(diadl)){#
+	meta.tab[i,1]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+	meta.tab[i,2]<-diadl[[i]]$dataset$site.data$site.name#
+	meta.tab[i,3]<-diadl[[i]]$dataset$site.data$site.id#
+	meta.tab[i,4]<-diadl[[i]]$dataset$site.data$long#
+	meta.tab[i,5]<-diadl[[i]]$dataset$site.data$lat#
+	meta.tab[i,6]<-diadl[[i]]$chronologies[[1]]$age.older[1]#
+	meta.tab[i,7]<-diadl[[i]]$chronologies[[1]]$age.younger[1]#
+	sitei<-get_site(diadl[[i]]$dataset$site.data$site.id)#
+	sitedl<-get_download(sitei)#
+	dstype<-c()#
+	for (j in 1:length(sitedl)){#
+		dstype[j]<-sitedl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		wc.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id #flag sites that also have water chem data#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (j in 1:length(water.id)){#
+			waterdl.c<-sitedl[[water.id[j]]]$counts#
+			chem.types.sub<-colnames(waterdl.c)#
+			chem.types<-c(chem.types,chem.types.sub)#
+		}#
+		chem.types.full<-paste(unique(chem.types),sep=",",collapse=", ")#
+	} else {#
+		wc.dia.sites[i]<-NA#
+		chem.types.full<-NA#
+	}#
+	uni.dstype<-unique(dstype)#
+	meta.tab[i,8]<-paste(uni.dstype,sep=",",collapse=", ")#
+	meta.tab[i,9]<-chem.types.full#
+#
+	if (sum(dstype %in% "pollen surface sample")>0) {#
+		diapol.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+		pol.id<-which(dstype=="pollen surface sample")#
+		polss<-c()#
+		for (j in 1:length(pol.id)){#
+			polss[j]<-sitedl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+		}#
+	} else {#
+		diapol.dia.sites[i]<-NA#
+		polss<-NA#
+	}#
+	polss.sites.all<-c(polss.sites.all,polss)#
 }#
-# This stretch of code used to determine at which modern lat/long locaations to download MODIS DATA#
-# not necessary to repeat unless my arrag of modern analogs changes#
+colnames(meta.tab)<-c("dataset.id","site.name","site.id","long","lat","age.older","age.younger","other.datasets","water.chemistry")
+diapol.dia.sites
+diapolss.ds<-diapol.dia.sites[!is.na(diapol.dia.sites)]
+poss.dl<-diadl[diapolss.ds]
+diapol.dl<-diadl[diapolss.ds]
+length(diapol.dl)
+length(diapolss.ds)
+polss.sites.all
+polss.sites.all[!is.na(polss.sites.all)]
+load('~/Desktop/Research_Git/DiatomMetacommunities/DiatomSS-Feb2020.Rdata')
+# generate metadata#
+meta.tab<-matrix(NA,nr=length(diadl),nc=9)#
+wc.dia.sites<-c()#
+polss.sites.all<-c()#
+diapol.dia.sites<-c()#
+dia.pol.matx<-c()#
 #
-# mod.matches<-c()#
-# for (j in 1:length(pol_dlx)) {#
-	# #print(j)#
-	# polj<-pol_dlx[[j]]#
+for (i in 1:length(diadl)){#
+	meta.tab[i,1]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+	meta.tab[i,2]<-diadl[[i]]$dataset$site.data$site.name#
+	meta.tab[i,3]<-diadl[[i]]$dataset$site.data$site.id#
+	meta.tab[i,4]<-diadl[[i]]$dataset$site.data$long#
+	meta.tab[i,5]<-diadl[[i]]$dataset$site.data$lat#
+	meta.tab[i,6]<-diadl[[i]]$chronologies[[1]]$age.older[1]#
+	meta.tab[i,7]<-diadl[[i]]$chronologies[[1]]$age.younger[1]#
+	sitei<-get_site(diadl[[i]]$dataset$site.data$site.id)#
+	sitedl<-get_download(sitei)#
+	dstype<-c()#
+	for (j in 1:length(sitedl)){#
+		dstype[j]<-sitedl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		wc.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id #flag sites that also have water chem data#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (j in 1:length(water.id)){#
+			waterdl.c<-sitedl[[water.id[j]]]$counts#
+			chem.types.sub<-colnames(waterdl.c)#
+			chem.types<-c(chem.types,chem.types.sub)#
+		}#
+		chem.types.full<-paste(unique(chem.types),sep=",",collapse=", ")#
+	} else {#
+		wc.dia.sites[i]<-NA#
+		chem.types.full<-NA#
+	}#
+	uni.dstype<-unique(dstype)#
+	meta.tab[i,8]<-paste(uni.dstype,sep=",",collapse=", ")#
+	meta.tab[i,9]<-chem.types.full#
 #
-	# mod_fos_scd<-calc_mod_fos_scd(polj,mod.pol,eco.taxa)#
-	# # set analog/no-analog threshol as 0.3, and limited the number of analogs per fossil sample to 7#
-	# scd_matches<-find_scd_matches(mod_fos_scd,threshold=0.3,N=7,WC)#
-	# v.matches<-as.vector(scd_matches[,,2])#
-	# mod.site.matches<-unique(v.matches[!is.na(v.matches)])#
-	# mod.matches<-c(mod.matches,mod.site.matches)#
-	# #mod.matches<-mod.pol[as.character(mod.site.matches)]#
-# }#
-#
-# unique.matches<-sort(unique(mod.matches))#
-# mod.matches<-mod.pol[as.character(unique.matches)]#
-#
-# # X<-c(-180,-50)#
-# Y<-c(10,89.999)#
-# mod.sites.meta<-map_dl(mod.matches,X,Y,add=F,return.table=T,col="black")#
-# write.csv(mod.sites.meta,"modern_sites.csv")#
-#
-# pol.sites.meta<-map_dl(pol_dlx,X,Y,add=F,return.table=T)#
-# write.csv(mod.sites.meta,"fossil_sites.csv")#
-#
-# mod.sites.meta<-map_dl(mod.matches,X,Y,add=F,return.table=F,col="green")#
-# pol.sites.meta<-map_dl(pol_dlx,X,Y,add=T,return.table=F,col="black")
-WClist<-list()#
-ap_wc<-list()#
-for (j in 1:length(pol_dlx)) {#
-	print(j)#
-	polj<-pol_dlx[[j]]#
-	depths<-polj$sample.meta$depth#
-#
-	mod_fos_scd<-calc_mod_fos_scd(polj,mod.pol,eco.taxa)#
-	# set analog/no-analog threshold=0.3, and limit the number of analogs per fossil sample to 7#
-	scd_matches<-find_scd_matches(mod_fos_scd,threshold=0.3,N=7,WC=modis)#
-	ap_wc[[j]]<-cbind(as.vector(scd_matches[[2]][,,4]),as.vector(scd_matches[[2]][,,3]))#
-	# Assign average environmental values to sample i#
-	WCmatx<-cbind(scd_matches[[1]],depths)#
-	WCmatx[which(WCmatx[,2]=="NaN"),2]<-NA#
-	#WCmatx<-WCmatx[complete.cases(WCmatx),]#
-	names(WCmatx)<-c("sample","pctWC","depths")#
-	WClist[[j]]<-WCmatx#
-}#
-#
-names(WClist)<-names(pol_dlx)#
-#
-plot(c(0,100),c(0,80),type="n",las=1,ylab="% Tree Cover",xlab="% Arborial Pollen")#
-for (i in 1:length(ap_wc)){#
-	temp<-ap_wc[[i]]#
-	temp[,1]<-temp[,1]*100#
-	points(temp,pch=16,cex=0.5)#
+	if (sum(dstype %in% "pollen surface sample")>0) {#
+		diapol.temp<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+		diapol.dia.sites[i]<-diapol.temp#
+		pol.id<-which(dstype=="pollen surface sample")#
+		polss<-c()#
+		for (j in 1:length(pol.id)){#
+			polss.temp<-sitedl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+			polss[j]<-polss.temp		#
+			dia.pol.row<-c(diadl[[i]]$dataset$site.data$site.id,polss.temp,diapol.temp)#
+			dia.pol.matx<-rbind(dia.pol.matx,dia.pol.row,)#
+		}#
+	} else {#
+		diapol.dia.sites[i]<-NA#
+		polss<-NA#
+	}#
+	polss.sites.all<-c(polss.sites.all,polss)#
 }
-par(mfrow=c(5,3),mar=c(0.25,0.25,0.25,0.25),oma=c(4,4,1,1))#
-for (j in 1:length(WClist)){#
-	wcj<-WClist[[j]]#
-	plot(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])),las=1,pch=16,ylim=c(0,100),xaxt="n",yaxt="n")#
-	lines(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])))#
-	axis(1,labels=F)#
-	axis(2,labels=F)#
+dia.pol.matx
+polss
+diapol.dia.sites
+length(diadl)
+meta.tab<-matrix(NA,nr=length(diadl),nc=9)#
+wc.dia.sites<-c()#
+polss.sites.all<-c()#
+diapol.dia.sites<-c()#
+dia.pol.matx<-c()#
+#
+for (i in 1:length(diadl)){#
+	meta.tab[i,1]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+	meta.tab[i,2]<-diadl[[i]]$dataset$site.data$site.name#
+	meta.tab[i,3]<-diadl[[i]]$dataset$site.data$site.id#
+	meta.tab[i,4]<-diadl[[i]]$dataset$site.data$long#
+	meta.tab[i,5]<-diadl[[i]]$dataset$site.data$lat#
+	meta.tab[i,6]<-diadl[[i]]$chronologies[[1]]$age.older[1]#
+	meta.tab[i,7]<-diadl[[i]]$chronologies[[1]]$age.younger[1]#
+	sitei<-get_site(diadl[[i]]$dataset$site.data$site.id)#
+	sitedl<-get_download(sitei)#
+	dstype<-c()#
+	for (j in 1:length(sitedl)){#
+		dstype[j]<-sitedl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		wc.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id #flag sites that also have water chem data#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (j in 1:length(water.id)){#
+			waterdl.c<-sitedl[[water.id[j]]]$counts#
+			chem.types.sub<-colnames(waterdl.c)#
+			chem.types<-c(chem.types,chem.types.sub)#
+		}#
+		chem.types.full<-paste(unique(chem.types),sep=",",collapse=", ")#
+	} else {#
+		wc.dia.sites[i]<-NA#
+		chem.types.full<-NA#
+	}#
+	uni.dstype<-unique(dstype)#
+	meta.tab[i,8]<-paste(uni.dstype,sep=",",collapse=", ")#
+	meta.tab[i,9]<-chem.types.full#
+#
+	if (sum(dstype %in% "pollen surface sample")>0) {#
+		diapol.temp<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+		diapol.dia.sites[i]<-diapol.temp#
+		pol.id<-which(dstype=="pollen surface sample")#
+		polss<-c()#
+		for (j in 1:length(pol.id)){#
+			polss.temp<-sitedl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+			polss[j]<-polss.temp		#
+			dia.pol.row<-c(diadl[[i]]$dataset$site.data$site.id,polss.temp,diapol.temp)#
+			dia.pol.matx<-rbind(dia.pol.matx,dia.pol.row)#
+		}#
+	} else {#
+		diapol.dia.sites[i]<-NA#
+		polss<-NA#
+	}#
+	polss.sites.all<-c(polss.sites.all,polss)#
 }
-par(mfrow=c(5,5),mar=c(0.25,0.25,0.25,0.25),oma=c(4,4,1,1))#
-for (j in 1:length(WClist)){#
-	wcj<-WClist[[j]]#
-	plot(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])),las=1,pch=16,ylim=c(0,100),xaxt="n",yaxt="n")#
-	lines(as.numeric(as.character(wcj[,3])),as.numeric(as.character(wcj[,2])))#
-	axis(1,labels=F)#
-	axis(2,labels=F)#
+dia.pol.matx
+colnamews(dia.pol.matx)<-c("site.id","diatom.ss.ds","pollen.ss.ds")
+colnames(dia.pol.matx)<-c("site.id","diatom.ss.ds","pollen.ss.ds")
+write.csv(dia.pol.matx,"pollenss_diatomss_ds.csv",row.names=F)
+dia.pol.matx<-read.csv("pollenss_diatomss_ds.csv")
+diapol.dl<-diadl[dia.pol.matx[,2]]#
+dia.update<-diapol.dl#
+#
+full.spp.list<-unique(taxonomy[,2])#
+sitesxspp.matx<-matrix(NA,nr=length(full.spp.list),nc=length(dia.update))#
+for (k in 1:length(dia.update)){#
+	print(k)#
+	diak<-dia.update[[k]]#
+	missingspp<-setdiff(full.spp.list,names(diak))#
+	zeros<-rep(0,length(missingspp))#
+	names(zeros)<-missingspp#
+	diak.complete<-c(diak,zeros)#
+	dia.order<-order(names(diak.complete))#
+	sitesxspp.matx[,k]<-diak.complete[dia.order]#
 }
-930/5
-sum(936.56,615.14,237.15)
-3600*3
-21500+11000+31500+50+1000+3000+1450+3000
-72500+42390
-sum(10800,700,2500,1008,25200,882,500,2000,3000)
-sum(21500,1100,31500,30001450,3000)
-sum(21500,1100,31500,3000,1450,3000)
-sum(21500,11000,31500)
-sum(46590,64000,3000,1450,3000)
-700*.15
-2500*.15
-1008*.15
-25200*.15
-882*.15
-500*.15
-2000*.15
-3000*.15
-21500*.15
-11000*.15
-31500*.15
-3000*.15
-1450*.15
-3000*.15
-sum(105,375,151,3780,132,75,300,450)
-sum(3225,1650,4725)
-sum(450,218,450)
-46590+5368
-64000+9600
-1118+9600+5368
-1118+9600+5368+118040
-sum(60,128,48,42,39,61)
-sum(50,20,9,122,18,74,19)
-378-312
-sum(21500,3225,11000,1650,31500,4725)
-134126-73600
-54000+26700
-126*25
-126*50
-125*126
-15750*.15
-6300*.15
-3150*.15
-sum(10800,700,2500,1008,15750,63003150,882,500,2000,3000)
-sum(10800,700,2500,1008,15750,6300,3150,882,500,2000,3000)
-sum(105,375,151,2363,945,473,132,75,300,450)
-sum(3000,1450,3000)
-sum(450,218,450,668)
-sum(450,218,450)
-46590+7450
-5369+1118
-6487+54040
-54000+267000
-54000+26700
-15750+2363_6300+945
-15750+2363+6300+945
-60527-25358
-31000+26700
-.75*6*1
-.8*6*1
-7*1*.75
-2*2*1
-2*2*1.5
-2*3*1
-1.5*3*1
-553.5-134.5
-553.5+134.5
-seq(1103,158.5,6)
-seq(1103,158.5,-6)
-x<-seq(1103,158.5,-6)#
-y<-x+1
-y
-cbind(y,x)
-x<-rev(seq(1103,158.5,-6))#
-y<-rev(x+1)#
-#
-cbind(y,x)
-x<-rev(seq(1103,158.5,-6))#
-y<-x+1#
-#
-cbind(y,x)
-1103-158.5
-(1103-158.5)/5
-(1103-158.5)/6
-186-164
-161-22
-x<-rev(seq(1103,158.5,-6))#
-y<-x-1#
-#
-cbind(x,y)
-x<-rev(seq(1103,158.5,-5))#
-y<-x-1#
-#
-cbind(y,x)
-y<-x-.5#
-cbind(y,x)
-1103-952
-sum(700,2500,1008,15750,6300,3150,882,500,2000,3000)
-sum(700,2500,1008,15750,6300,3150,882,500,2000,3000,10800)
-sum(105,375,151,2363,945,473,132,75,300,450)
-sum(3000,1450,3000)
-46590+7450
-sum(450,218,450,1118)
-sum(450,218,450)
-1118+5369
-4000*.15
-46590+2000
-5369+300
-5669+1118
-sum(48590+7450)
-56040+6787
-library(maps)
-map(xlim=c(-180,-50),ylim=c(10,89.99))
-map(xlim=c(-180,-50),ylim=c(20,80))
-map(xlim=c(-180,-50),ylim=c(20,70))
-map(xlim=c(-180,-50),ylim=c(20,56))
-map(xlim=c(-180,-50),ylim=c(20,50))
-map(xlim=c(-160,-50),ylim=c(20,50))
-map(xlim=c(-140,-50),ylim=c(20,50))
-box()
-map(xlim=c(-130,-50),ylim=c(20,50))
-box()
-map(xlim=c(-130,-60),ylim=c(20,50))
-box()
-map("united states",c("minnesota","wisconsin","iowa"))
-map("states",c("minnesota","wisconsin","iowa"),add=T)
-?map
-map("state",c("minnesota","wisconsin","iowa"),add=T)
-map("state",c("minnesota","wisconsin","iowa"),add=T,fill="gray")
-map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray")
-map("state",c("minnesota","wisconsin","iowa"),add=T,bg="gray")
-map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray",interior=T)
-?map
-map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray",fill=T)
-map("state",add=T)
-map(xlim=c(-130,-60),ylim=c(20,50))#
-box()#
-map("state",add=T,lwd=0.5)#
-map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray",fill=T)
-map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray40",fill=T)
-map("state",c("minnesota","wisconsin","iowa"),add=T,col="gray50",fill=T)
-7.6/2
-0.75/
-2
-40/0.38
-105*2
-7.6-2
-210/5.6
-sum(25,67,21,294)
-sum(41,42,37,20,53,84,34,32,10)
-407-353
-401-226
-library(Bchron)
-?Bcalibrate
-?Bchron_calibrate
-??Bcalibrate
-?BchronCalibrate
-BchronCalibrate(ages=2815,ageSds=140,calCurves="intcal13")
-x<-BchronCalibrate(ages=2815,ageSds=140,calCurves="intcal13")
-summary(x)
-plotx
-plot(x)
-80000-26700
-60691-3500
-10.96+39.13+12.52+10.96+39.13
-112.7*6
-112.7*16
-112.7*26
-10368+4147
-67367-14515
-47608-53300
-12.52+39.13
-5700/52
-110/2
-126+55
-# could try with MNI rather than NISP#
-#
-library(rioja)#
-library(princurve)#
+k=1
+diak<-dia.update[[k]]
+diak
+diak<-dia.update[[k]]$counts
+diak
+dia.update<-diapol.dl
+diapol.dl<-diadl[dia.pol.matx[,2]]
+dia.update<-diapol.dl
+dia.update[[k]]
+dia.pol.matx[,2]
+diadl[as.character(dia.pol.matx[,2])]
+names(diadl)
+dia.pol.matx[1,2]
+diadl[as.character(dia.pol.matx[1,2])]
+diapol.dl<-get_download(dia.pol.matx[,2])
+dia.update<-diapol.dl
+full.spp.list<-unique(taxonomy[,2])#
+sitesxspp.matx<-matrix(NA,nr=length(full.spp.list),nc=length(dia.update))#
+for (k in 1:length(dia.update)){#
+	print(k)#
+	diak<-dia.update[[k]]$counts#
+	missingspp<-setdiff(full.spp.list,names(diak))#
+	zeros<-rep(0,length(missingspp))#
+	names(zeros)<-missingspp#
+	diak.complete<-c(diak,zeros)#
+	dia.order<-order(names(diak.complete))#
+	sitesxspp.matx[,k]<-diak.complete[dia.order]#
+}
+dia.update[[k]]
+# LIBRARIES ######################
+library(neotoma) #
+# devtools::install_github("allisonstegner/NeotomaRfns")#
+library(NeotomaRfns)#
+library(betapart)#
 library(vegan)#
 #
-data.table<-"~/Google Drive/1 Stanford postdoc/Vertebrate Research/Waterfall Locality/2019 updated ms/Data/WL_smallmammals.csv"#
-#data.table<-"~/Google Drive/1 Stanford postdoc/Vertebrate Research/Waterfall Locality/2019 updated ms/Data/WL_NISP.csv"
-WLnisp<-read.csv(data.table)#
-WLnisp[is.na(WLnisp)]<-0#
-WLtax<-WLnisp[,c(2:18)]#
-rownames(WLtax)<-WLnisp[,1]#
-WLtax<-WLtax[order(rowSums(WLtax)),]#
-WLtaxcc<-as.matrix(WLtax[rowSums(WLtax)>0,])
-WLtaxcc
-permute.pollen.cor<-function(datamatx,cor.vect,n){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[k,]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[j,]#
-			cor.out<-cor.test(vect1,vect2,method="spearman")#
-			rhos[k,j]<-cor.out$estimate[[1]]#
-			ps[k,j]<-cor.out$p.value[[1]]#
+library(maps)#
+library(maptools)#
+library(rgeos)#
+library(rgdal)#
+library(raster)#
+library(geosphere)#
+library(spatial)
+# FUNCTIONS ######################
+extract.coords<-function(pol_dl_obj){#
+	coords<-matrix(NA,nc=3,nr=length(pol_dl_obj))#
+	for (i in 1:length(pol_dl_obj)){#
+		coords[i,]<-c(pol_dl_obj[[i]]$dataset$dataset.meta$dataset.id,pol_dl_obj[[i]]$dataset$site.data$long,pol_dl_obj[[i]]$dataset$site.data$lat)	#
+	}#
+	return(coords)#
+}#
+#
+# point.in.region________________________________________________________#
+point.in.region<-function(point.long,point.lat,regionk){#
+	in.region<-c()#
+	for (i in 1:length(regionk@polygons)){#
+		in.polygon<-c()#
+		in.hole<-c()#
+		for(j in 1:length(regionk@polygons[[i]]@Polygons)){#
+			coords.ij<-regionk@polygons[[i]]@Polygons[[j]]@coords#
+			in.polygon[j]<-point.in.polygon(point.long,point.lat,coords.ij[,1],coords.ij[,2])#
+			if (regionk@polygons[[i]]@Polygons[[j]]@hole==TRUE){#
+				in.hole[j]<-1#
+			} else {#
+				in.hole[j]<-0#
+			}	#
+		}#
+		temp<-cbind(in.hole,in.polygon)#
+		if (sum(c(temp[,2]-temp[,1]) %in% 1)>0 && sum(c(temp[,2]-temp[,1]) %in% 0)==0){#
+			in.region[i]<-1#
+		} else {#
+			in.region[i]<-0#
+		}	#
+	}#
+#
+	if (sum(in.region)>0){ in.ecoregion<-1#
+	} else { in.ecoregion<-0 }	#
+	return(in.ecoregion)#
+}#
+# assign.point________________________________________________________#
+assign.point<-function(point.long,point.lat,ecoregions){#
+	region.list<-unique(ecoregions$NA_L1NAME)#
+	region.list<-region.list[-1]#
+	classify.pt<-matrix(NA,nr=length(region.list),nc=2)#
+	for (i in 1:length(region.list)){#
+		regionk<-ecoregions[ecoregions$NA_L1NAME==region.list[i],]#
+		inYN<-point.in.region(point.long,point.lat,regionk)#
+		classify.pt[i,]<-c(as.character(region.list[i]),inYN)#
+	}#
+	classify.pt<-as.data.frame(classify.pt)#
+	if (sum(as.numeric(as.vector(classify.pt[,2])))==0){#
+	# some sites fall beyond the EPA ecoregion shapefiles#
+	# those sites are assigned to the nearest polygon in this if statement#
+		min.dist3<-c()#
+		for (i in 1:length(region.list)){#
+			regionk<-ecoregions[ecoregions$NA_L1NAME==region.list[i],]#
+			min.dist2<-c()#
+			for (j in 1:length(regionk@polygons)){#
+				min.dist<-c()#
+				for (k in 1: length(regionk@polygons[[j]]@Polygons)){#
+					coords.ij<-regionk@polygons[[j]]@Polygons[[k]]@coords#
+					min.dist[k]<-min(distGeo(c(point.long,point.lat),coords.ij))#
+				}#
+				min.dist2[j]<-min(min.dist)	#
+			}#
+			min.dist3[i]<-min(min.dist2)#
+		}	#
+		out<-as.character(region.list[which.min(min.dist3)])#
+	} else {#
+		out<-as.character(classify.pt[which(classify.pt[,2]==1),1])#
+	}#
+	return(out)#
+}#
+#
+# plot.div___________________________________________________________-#
+plot.div<-function(div.quant,binmeans,lab){#
+	if (!is.numeric(binmeans)){#
+		cats<-c(1:length(binmeans))#
+		plot(cats,div.quant[,2],pch=16,xlab="",ylab=lab,ylim=c(min(div.quant,na.rm=T),max(div.quant,na.rm=T)),las=1,xaxt="n")#
+		segments(y0=div.quant[,1],x0=cats,y1=div.quant[,3],x1=cats)#
+		axis(1,at=seq(1:length(binmeans)),labels=binmeans,cex.axis=0.5,las=3)#
+	} else {#
+plot(binmeans,div.quant[,2],pch=16,xlab="Latitude",ylab=lab,ylim=c(min(div.quant,na.rm=T),max(div.quant,na.rm=T)),las=1)#
+		segments(y0=div.quant[,1],x0=binmeans,y1=div.quant[,3],x1=binmeans)#
+	}#
+}
+load('~/Desktop/Research_Git/DiatomMetacommunities/DiatomSS-Feb2020.Rdata')
+k=1
+diadl[k]
+names(diadl[k])
+names(diadl[[k]])
+names(diadl[[k]]$dataset)
+names(diadl[[k]]$dataset$site.data)
+sitek<-diadl[[k]]$dataset$site.data$site.id
+sitek
+get_site(sitek)
+sitek_ds<-get_site(sitek)
+sitek_ds
+get_download(sitek)
+get_dataset(sitek)
+sitek
+get_site(sitek)
+x<-(get_site(sitek))
+names(x)
+sitek_gs<-get_site(sitek)
+sitek_dl<-get_download(sitei)
+sitek_dl<-get_download(sitek_gs)
+sitek_dl
+meta.table<-read.csv("~/Desktop/Research_Git/DiatomMetacommunities/diatom_surfacesamp_metadata.csv")
+meta.table
+names(meta.table)
+meta.table$water.chemistry[1:3]
+# # generate metadata#
+meta.tab<-matrix(NA,nr=length(diadl),nc=9)#
+wc.dia.sites<-c()#
+polss.sites.all<-c()#
+diapol.dia.sites<-c()#
+dia.pol.matx<-c()#
+chem.types.all<-c()#
+for (i in 1:length(diadl)){#
+	meta.tab[i,1]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+	meta.tab[i,2]<-diadl[[i]]$dataset$site.data$site.name#
+	meta.tab[i,3]<-diadl[[i]]$dataset$site.data$site.id#
+	meta.tab[i,4]<-diadl[[i]]$dataset$site.data$long#
+	meta.tab[i,5]<-diadl[[i]]$dataset$site.data$lat#
+	meta.tab[i,6]<-diadl[[i]]$chronologies[[1]]$age.older[1]#
+	meta.tab[i,7]<-diadl[[i]]$chronologies[[1]]$age.younger[1]#
+	sitei<-get_site(diadl[[i]]$dataset$site.data$site.id)#
+	sitedl<-get_download(sitei)#
+	dstype<-c()#
+	for (j in 1:length(sitedl)){#
+		dstype[j]<-sitedl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		wc.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id #flag sites that also have water chem data#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (j in 1:length(water.id)){#
+			waterdl.c<-sitedl[[water.id[j]]]$counts#
+			chem.types.sub<-colnames(waterdl.c)#
+			chem.types<-c(chem.types,chem.types.sub)#
+		}#
+		chem.types.full<-paste(unique(chem.types),sep=",",collapse=", ")#
+	} else {#
+		wc.dia.sites[i]<-NA#
+		chem.types.full<-NA#
+	}#
+	uni.dstype<-unique(dstype)#
+	chem.types.all<-c(chem.types.all,uni.dstype)#
+	meta.tab[i,8]<-paste(uni.dstype,sep=",",collapse=", ")#
+	meta.tab[i,9]<-chem.types.full#
+#
+	if (sum(dstype %in% "pollen surface sample")>0) {#
+		diapol.temp<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+		diapol.dia.sites[i]<-diapol.temp#
+		pol.id<-which(dstype=="pollen surface sample")#
+		polss<-c()#
+		for (j in 1:length(pol.id)){#
+			polss.temp<-sitedl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+			polss[j]<-polss.temp		#
+			dia.pol.row<-c(diadl[[i]]$dataset$site.data$site.id,polss.temp,diapol.temp)#
+			dia.pol.matx<-rbind(dia.pol.matx,dia.pol.row)#
+		}#
+	} else {#
+		diapol.dia.sites[i]<-NA#
+		polss<-NA#
+	}#
+	polss.sites.all<-c(polss.sites.all,polss)#
+}#
+colnames(meta.tab)<-c("dataset.id","site.name","site.id","long","lat","age.older","age.younger","other.datasets","water.chemistry")#
+#
+chem.species<-unique(chem.types.all)
+chem.species
+# # generate metadata#
+meta.tab<-matrix(NA,nr=length(diadl),nc=9)#
+wc.dia.sites<-c()#
+polss.sites.all<-c()#
+diapol.dia.sites<-c()#
+dia.pol.matx<-c()#
+chem.types.all<-c()#
+for (i in 1:length(diadl)){#
+	meta.tab[i,1]<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+	meta.tab[i,2]<-diadl[[i]]$dataset$site.data$site.name#
+	meta.tab[i,3]<-diadl[[i]]$dataset$site.data$site.id#
+	meta.tab[i,4]<-diadl[[i]]$dataset$site.data$long#
+	meta.tab[i,5]<-diadl[[i]]$dataset$site.data$lat#
+	meta.tab[i,6]<-diadl[[i]]$chronologies[[1]]$age.older[1]#
+	meta.tab[i,7]<-diadl[[i]]$chronologies[[1]]$age.younger[1]#
+	sitei<-get_site(diadl[[i]]$dataset$site.data$site.id)#
+	sitedl<-get_download(sitei)#
+	dstype<-c()#
+	for (j in 1:length(sitedl)){#
+		dstype[j]<-sitedl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		wc.dia.sites[i]<-diadl[[i]]$dataset$dataset.meta$dataset.id #flag sites that also have water chem data#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (j in 1:length(water.id)){#
+			waterdl.c<-sitedl[[water.id[j]]]$counts#
+			chem.types.sub<-colnames(waterdl.c)#
+			chem.types<-c(chem.types,chem.types.sub)#
+		}#
+		chem.types.full<-paste(unique(chem.types),sep=",",collapse=", ")#
+	} else {#
+		wc.dia.sites[i]<-NA#
+		chem.types.full<-NA#
+		chem.types<-NA#
+	}#
+	uni.dstype<-unique(dstype)#
+	chem.types.all<-c(chem.types.all,chem.types)#
+	meta.tab[i,8]<-paste(uni.dstype,sep=",",collapse=", ")#
+	meta.tab[i,9]<-chem.types.full#
+#
+	if (sum(dstype %in% "pollen surface sample")>0) {#
+		diapol.temp<-diadl[[i]]$dataset$dataset.meta$dataset.id#
+		diapol.dia.sites[i]<-diapol.temp#
+		pol.id<-which(dstype=="pollen surface sample")#
+		polss<-c()#
+		for (j in 1:length(pol.id)){#
+			polss.temp<-sitedl[[pol.id[j]]]$dataset$dataset.meta$dataset.id#
+			polss[j]<-polss.temp		#
+			dia.pol.row<-c(diadl[[i]]$dataset$site.data$site.id,polss.temp,diapol.temp)#
+			dia.pol.matx<-rbind(dia.pol.matx,dia.pol.row)#
+		}#
+	} else {#
+		diapol.dia.sites[i]<-NA#
+		polss<-NA#
+	}#
+	polss.sites.all<-c(polss.sites.all,polss)#
+}#
+colnames(meta.tab)<-c("dataset.id","site.name","site.id","long","lat","age.older","age.younger","other.datasets","water.chemistry")#
+#
+chem.species<-unique(chem.types.all)
+chem.species
+sitek_dl
+dstype<-c()#
+	for (j in 1:length(sitek_dl)){#
+		dstype[j]<-sitek_dl[[j]]$dataset$dataset.meta$dataset.type#
+	}
+dstype
+(sum(dstype %in% "water chemistry")>0)
+water.id<-which(dstype=="water chemistry")
+water.id
+sitek_dl[[water.id[j]]]$counts
+water.id
+i=1
+sitek_dl[[water.id[i]]]$counts
+waterdl.c<-sitek_dl[[water.id[i]]]$counts
+names(waterdl.c)
+colnames(waterdl.c)
+match(colnames(waterdl.c),chem.species)
+match(chem.species,colnames(waterdl.c))
+k.chems.all<-rep(NA,length(chem.species))
+k.chems<-colnames(waterdl.c)
+k.chems
+k.chems.all
+chem.species[m] %in% k.chems
+m=1
+chem.species[m] %in% k.chems
+which(chem.species[m] %in% k.chems)
+chem.species[m]
+k.chems
+which(chem.species[m+1] %in% k.chems)
+which(chem.species[m] == k.chems)
+chem.species[m] == k.chems
+m+3
+chem.species[m+3] == k.chems
+which(chem.species[m+3] == k.chems)
+k.chems
+chem.species
+sort(chem.species)
+chem.species<-sort(chem.species)
+which(chem.species[m] == k.chems)
+chem.species[m]
+k.chems
+ind<-which(chem.species[m] == k.chems)
+chem.species
+m=2
+waterdl.c<-sitek_dl[[water.id[i]]]$counts#
+			k.chems<-colnames(waterdl.c)
+k.chems
+which(chem.species[m] == k.chems)
+chem.species[m]
+k.chems
+waterdl.c[ind]
+ind<-which(chem.species[m] == k.chems)
+ind
+waterdl.c[ind]
+waterdl.c
+k=2
+k=1
+chem.datatab<-matrix(NA, nr=length(diadl),nc=length(chem.species))
+sitek<-diadl[[k]]$dataset$site.data$site.id#
+	sitek_ds<-get_site(sitek)#
+	sitek_gs<-get_site(sitek)#
+	sitek_dl<-get_download(sitek_gs)#
+	dstype<-c()#
+	for (j in 1:length(sitek_dl)){#
+		dstype[j]<-sitek_dl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (i in 1:length(water.id)){#
+			waterdl.c<-sitek_dl[[water.id[i]]]$counts#
+			k.chems<-colnames(waterdl.c)#
+			k.chems.all<-c()#
+			for (m in 1:length(chem.species)){#
+				ind<-which(chem.species[m] == k.chems)#
+				if (length(ind)==0){#
+					k.chems.all[m]<-NA#
+				} else {#
+					k.chems.all[m]<-waterdl.c[ind]#
+				}#
+			}#
+		}#
+	} else {#
+		k.chems.all<-rep(NA,length(chem.species))#
+	}#
+	chem.datatab[k,]<-k.chems.all
+k.chems.all
+colnames(chem.datatab)<-chem.species
+chem.datatab
+head(chem.datatab)
+chem.datatab<-matrix(NA, nr=length(diadl),nc=length(chem.species))#
+for (k in 1:length(diadl)){#
+	sitek<-diadl[[k]]$dataset$site.data$site.id#
+	sitek_ds<-get_site(sitek)#
+	sitek_gs<-get_site(sitek)#
+	sitek_dl<-get_download(sitek_gs)#
+	dstype<-c()#
+	for (j in 1:length(sitek_dl)){#
+		dstype[j]<-sitek_dl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (i in 1:length(water.id)){#
+			waterdl.c<-sitek_dl[[water.id[i]]]$counts#
+			k.chems<-colnames(waterdl.c)#
+			k.chems.all<-c()#
+			for (m in 1:length(chem.species)){#
+				ind<-which(chem.species[m] == k.chems)#
+				if (length(ind)==0){#
+					k.chems.all[m]<-NA#
+				} else {#
+					k.chems.all[m]<-waterdl.c[ind]#
+				}#
+			}#
+		}#
+	} else {#
+		k.chems.all<-rep(NA,length(chem.species))#
+	}#
+	chem.datatab[k,]<-k.chems.all#
+}#
+#
+colnames(chem.datatab)<-chem.species
+head(chem.datatab)
+x<-cbind(names(dia_dl),chem.datatab)
+x<-cbind(names(diadl),chem.datatab)
+chem.datatab<-matrix(NA, nr=length(diadl),nc=length(chem.species))#
+site_ids<-c()#
+for (k in 1:length(diadl)){#
+	sitek<-diadl[[k]]$dataset$site.data$site.id#
+	site_ids[k]<-sitek	#
+	sitek_ds<-get_site(sitek)#
+	sitek_gs<-get_site(sitek)#
+	sitek_dl<-get_download(sitek_gs)#
+	dstype<-c()#
+	for (j in 1:length(sitek_dl)){#
+		dstype[j]<-sitek_dl[[j]]$dataset$dataset.meta$dataset.type#
+	}#
+	if (sum(dstype %in% "water chemistry")>0) {#
+		water.id<-which(dstype=="water chemistry")#
+		chem.types<-c()#
+		for (i in 1:length(water.id)){#
+			waterdl.c<-sitek_dl[[water.id[i]]]$counts#
+			k.chems<-colnames(waterdl.c)#
+			k.chems.all<-c()#
+			for (m in 1:length(chem.species)){#
+				ind<-which(chem.species[m] == k.chems)#
+				if (length(ind)==0){#
+					k.chems.all[m]<-NA#
+				} else {#
+					k.chems.all[m]<-waterdl.c[ind]#
+				}#
+			}#
+		}#
+	} else {#
+		k.chems.all<-rep(NA,length(chem.species))#
+	}#
+	chem.datatab[k,]<-k.chems.all#
+}
+colnames(chem.datatab)<-chem.species#
+#
+waterchem.data<-cbind(names(dia_dl),site_ids,chem.datatab)
+waterchem.data<-cbind(names(diadl),site_ids,chem.datatab)
+colnames(waterchem.data)<-c("diatomss.dataset.id","site.id",chem.species)
+head(waterchem.data)
+getwd()
+write.csv(waterchem.data,"waterchemistry_data.csv")
+##########################################################
+# Code to analyze diatom surface sample data from Neotoma#
+# copyright: 2019#
+# M. Allison Stegner#
+##########################################################
+#
+# LIBRARIES ######################
+library(neotoma) #
+# devtools::install_github("allisonstegner/NeotomaRfns")#
+library(NeotomaRfns)#
+library(betapart)#
+library(vegan)#
+#
+library(maps)#
+library(maptools)#
+library(rgeos)#
+library(rgdal)#
+library(raster)#
+library(geosphere)#
+library(spatial)
+# FUNCTIONS ######################
+extract.coords<-function(pol_dl_obj){#
+	coords<-matrix(NA,nc=3,nr=length(pol_dl_obj))#
+	for (i in 1:length(pol_dl_obj)){#
+		coords[i,]<-c(pol_dl_obj[[i]]$dataset$dataset.meta$dataset.id,pol_dl_obj[[i]]$dataset$site.data$long,pol_dl_obj[[i]]$dataset$site.data$lat)	#
+	}#
+	return(coords)#
+}#
+#
+# point.in.region________________________________________________________#
+point.in.region<-function(point.long,point.lat,regionk){#
+	in.region<-c()#
+	for (i in 1:length(regionk@polygons)){#
+		in.polygon<-c()#
+		in.hole<-c()#
+		for(j in 1:length(regionk@polygons[[i]]@Polygons)){#
+			coords.ij<-regionk@polygons[[i]]@Polygons[[j]]@coords#
+			in.polygon[j]<-point.in.polygon(point.long,point.lat,coords.ij[,1],coords.ij[,2])#
+			if (regionk@polygons[[i]]@Polygons[[j]]@hole==TRUE){#
+				in.hole[j]<-1#
+			} else {#
+				in.hole[j]<-0#
+			}	#
+		}#
+		temp<-cbind(in.hole,in.polygon)#
+		if (sum(c(temp[,2]-temp[,1]) %in% 1)>0 && sum(c(temp[,2]-temp[,1]) %in% 0)==0){#
+			in.region[i]<-1#
+		} else {#
+			in.region[i]<-0#
+		}	#
+	}#
+#
+	if (sum(in.region)>0){ in.ecoregion<-1#
+	} else { in.ecoregion<-0 }	#
+	return(in.ecoregion)#
+}#
+# assign.point________________________________________________________#
+assign.point<-function(point.long,point.lat,ecoregions){#
+	region.list<-unique(ecoregions$NA_L1NAME)#
+	region.list<-region.list[-1]#
+	classify.pt<-matrix(NA,nr=length(region.list),nc=2)#
+	for (i in 1:length(region.list)){#
+		regionk<-ecoregions[ecoregions$NA_L1NAME==region.list[i],]#
+		inYN<-point.in.region(point.long,point.lat,regionk)#
+		classify.pt[i,]<-c(as.character(region.list[i]),inYN)#
+	}#
+	classify.pt<-as.data.frame(classify.pt)#
+	if (sum(as.numeric(as.vector(classify.pt[,2])))==0){#
+	# some sites fall beyond the EPA ecoregion shapefiles#
+	# those sites are assigned to the nearest polygon in this if statement#
+		min.dist3<-c()#
+		for (i in 1:length(region.list)){#
+			regionk<-ecoregions[ecoregions$NA_L1NAME==region.list[i],]#
+			min.dist2<-c()#
+			for (j in 1:length(regionk@polygons)){#
+				min.dist<-c()#
+				for (k in 1: length(regionk@polygons[[j]]@Polygons)){#
+					coords.ij<-regionk@polygons[[j]]@Polygons[[k]]@coords#
+					min.dist[k]<-min(distGeo(c(point.long,point.lat),coords.ij))#
+				}#
+				min.dist2[j]<-min(min.dist)	#
+			}#
+			min.dist3[i]<-min(min.dist2)#
+		}	#
+		out<-as.character(region.list[which.min(min.dist3)])#
+	} else {#
+		out<-as.character(classify.pt[which(classify.pt[,2]==1),1])#
+	}#
+	return(out)#
+}#
+#
+# plot.div___________________________________________________________-#
+plot.div<-function(div.quant,binmeans,lab){#
+	if (!is.numeric(binmeans)){#
+		cats<-c(1:length(binmeans))#
+		plot(cats,div.quant[,2],pch=16,xlab="",ylab=lab,ylim=c(min(div.quant,na.rm=T),max(div.quant,na.rm=T)),las=1,xaxt="n")#
+		segments(y0=div.quant[,1],x0=cats,y1=div.quant[,3],x1=cats)#
+		axis(1,at=seq(1:length(binmeans)),labels=binmeans,cex.axis=0.5,las=3)#
+	} else {#
+plot(binmeans,div.quant[,2],pch=16,xlab="Latitude",ylab=lab,ylim=c(min(div.quant,na.rm=T),max(div.quant,na.rm=T)),las=1)#
+		segments(y0=div.quant[,1],x0=binmeans,y1=div.quant[,3],x1=binmeans)#
+	}#
+}#
+#
+# sqs version 3.2 by John Alroy#
+# performs shareholder quorum subsampling on an array of specimen counts#
+# can be used to perform classical rarefaction instead of SQS#
+# written 29 July 2010; version 2.0 completed 14 February 2011; versions 3.0,#
+#  3.1, 3.2, and 3.3 written 3 June, 12 July, 19-23 August, and 2 December 2011#
+# change in version 3.3: fixed bug in computation of maximum estimated coverage#
+# changes in version 3.2: specimens drawn and subsampled U are based on#
+#  geometric means of counts; ignore.singletons option added#
+# change in version 3.1: an even better frequency adjustment involving#
+#  singletons and doubletons#
+# changes in version 3.0: an even better subsampling algorithm involving a new#
+#  adjustment to u combined with a new throwback criterion#
+# changes in version 2.0: improved subsampling algorithm; including the dominant #
+#  taxon is now the default; improved reporting of errors and basic statistics#
+# warning: do not use this program with taxonomic occurrence data drawn from#
+#  multiple published references because it is not designed to count#
+#  single-reference taxa or adjust for long taxonomic lists#
+# warning: version 1.0 yields estimates that are downwards-biased when q < 0.6#
+#  and abundance distributions are highly uneven#
+#
+###ARGUMENTS####
+##ab = abundance data (= count) vector#
+##q = quorum (desired frequency coverage level, between 0 and 1)#
+##trials = number of subsampling trials (default 100, recommended value at least 1000)#
+##method = subsampling method (default SQS, option "rarefaction" a.k.a. "CR")#
+##dominant = include/exclude dominant (most common) taxon (default include, option "exclude" a.k.a. "no")#
+#
+###OUTPUTS####
+##raw richness = the number of cells in the data array (i.e., the number of taxa)#
+##Good's u = the index of frequency coverage described by Good (1953); the same equation is used during subsampling trials to see whether the quorum has been achieved, but this value pertains to the entire data set#
+##subsampled richness = the geometric mean number of taxa found in subsamples (as generated either by SQS or rarefaction)#
+##subsampled u = the mean value of Good's u based on the randomly drawn subsamples#
+##Chao 1 = the simple estimate of species pool size produced by the index described in Chao (1984), which may yield noisy and/or sample size-biased estimates (included for comparative purposes only)#
+##subsampled Chao 1 = the same estimate based only on counts included in subsamples (averaged across subsampling trials), which can be much lower than the overall Chao 1 estimate (unfortunately)#
+##k = the generating parameter of the geometric series distribution, which is computed with a simple regression of log abundance vs. abundance rank#
+##Fisher's alpha = the generating parameter of the log series distribution, which is generated with a standard recursive equation involving observed richness and total abundance#
+##Shannon's H = the standard information index, i.e., -1 times the sum of fi log fi where fi = the proportional frequency of the ith taxon in the sample#
+##Hurlbert's PIE = the sample-size corrected probability of interspecific encounter index defined by Hurlbert(1971)#
+##dominance = the Berger-Parker dominance index, i.e., the proportional frequency of the most common taxon#
+##specimens = the total count across the sample#
+##singletons = the number of taxa with a count of 1 (used to compute Good's u and Chao 1)#
+##doubletons = the number of taxa with a count of 2 (used to compute Chao 1)#
+##specimens drawn = the geometric mean number of specimens drawn in each random subsample#
+sqs<-function(ab,q,trials,method,ignore.singletons,dominant)	{#
+#
+	params <- array(data=NA,dim=0)#
+	if (missing(trials))	{#
+		trials <- 100#
+	}#
+	if (missing(method))	{#
+		method <- ""#
+	} else if (method != "" && method != "rarefaction" && method != "CR")	{#
+		return(print('If the method is rarefaction enter method="rarefaction" or "CR"',quote=F))#
+	}#
+	if ((q <= 0 || q >= 1) && method != "rarefaction" && method != "CR")	{#
+		return(print("If the method is SQS the quota must be greater than zero and less than one",quote=F))#
+	} else if (q < 1 && (method == "rarefaction" || method == "CR"))	{#
+		return(print("If the method is rarefaction the quota must be an integer",quote=F))#
+	}#
+	ignore <- 0#
+	if (! missing(ignore.singletons) && (ignore.singletons == T || ignore.singletons == "yes" || ignore.singletons == "y"))	{#
+		ignore <- 1#
+	}#
+	if (missing(dominant))	{#
+		dominant <- 0#
+	} else if (dominant != "" && dominant != "exclude" && dominant != "no")	{#
+		return(print('To exclude the dominant taxon, enter dominant="exclude" or "no"',quote=F))#
+	}#
+#
+	# compute basic statistics#
+	specimens <- sum(ab)#
+	singletons <- 0#
+	doubletons <- 0#
+	highest <- 0#
+	for (i in 1:length(ab))	{#
+		if (ab[i] == 1)	{#
+			singletons <- singletons + 1#
+		} else if (ab[i] == 2)	{#
+			doubletons <- doubletons + 1#
+		}#
+		if (ab[i] > highest)	{#
+			highest <- ab[i]#
+			mostfrequent <- i#
 		}#
 	}#
-	out<-list(rhos,ps)#
-	return(out)#
-}
-permute.pollen.cor(WLtaxcc)
-permute.pollen.cor<-function(datamatx){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[k,]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[j,]#
-			cor.out<-cor.test(vect1,vect2,method="spearman")#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			ps[j,k]<-cor.out$p.value[[1]]#
+	u <- 1 - singletons / specimens#
+	# optionally, exclude the dominant taxon#
+	if (dominant == "exclude" || dominant == "no")	{#
+		u <- 1 - singletons / (specimens - highest)#
+	}#
+#
+	if (u == 0)	{#
+		return(print("Coverage is zero because all taxa are singletons",quote=F))#
+	}#
+#
+	# compute raw taxon frequencies (temporarily)#
+	freq <- ab / specimens#
+#
+	# standard recursive equation for Fisher's alpha#
+	alpha <- 10#
+	oldalpha <- 0#
+	while (abs(alpha - oldalpha) > 0.0000001)	{#
+		oldalpha <- alpha#
+		alpha <- length(ab) / log(1 + specimens/alpha)#
+	}#
+#
+	params["raw richness"] <- length(ab)#
+	params["Good's u"] <- u#
+	params["subsampled richness"] <- NA#
+	params["subsampled u"] <- NA#
+	params["Chao 1"] <- length(ab) + singletons**2/(2* doubletons)#
+	params["subsampled Chao 1"] <- NA#
+	# governing parameter of the geometric series distribution#
+	params["k"] <- abs(lm(log(sort(freq)) ~ c(1:length(freq)))$coefficients[2])#
+	params["Fisher's alpha"] <- alpha#
+	params["Shannon's H"] <- -1 * sum(freq * log(freq))#
+	params["Hurlbert's PIE"] <- (1 - sum(freq**2)) * length(ab) / (length(ab) - 1)#
+	params["dominance"] <- highest / specimens#
+	params["specimens"] <- specimens#
+	params["singletons"] <- singletons#
+	params["doubletons"] <- doubletons#
+	params["specimens drawn"] <- 0#
+	if (dominant != "exclude" && dominant != "no")	{#
+		highest <- 0#
+		mostfrequent <- 0#
+	}#
+#
+	# return if the rarefaction quota is equal to or higher than the#
+	#  specimen count#
+	if (method == "rarefaction" && q >= specimens - highest)	{#
+		return(params)#
+	}#
+#
+	# compute taxon frequencies (tweak added in version 3.1)#
+	freq <- ab - (singletons + doubletons / 2) / length(ab)#
+	freq <- freq / (specimens - highest)#
+#
+	# return if the quorum target is higher than estimated coverage#
+	if ((q > sum(freq) && method != "rarefaction" && method != "CR") || (q >= sum(ab)))	{#
+		return(params)#
+	}#
+#
+	# create an array in which each cell corresponds to one specimen#
+	ids <- array()#
+	n <- 0#
+	for (i in 1:length(ab))	{#
+		for (j in 1:ab[i])	{#
+			n <- n + 1#
+			ids[n] <- i#
 		}#
 	}#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
-}
-permute.pollen.cor(WLtaxcc)
-permute.pollen.cor<-function(datamatx){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[k,]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[j,]#
-			cor.out<-cor.test(vect1,vect2,method="spearman")#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			ps[j,k]<-cor.out$p.value[[1]]#
+#
+	# subsampling trial loop#
+	# s will be the subsampled taxon count#
+	s <- array(rep(0,trials))#
+	drawn <- array(rep(0,trials))#
+	mostfrequentdrawn <- array(rep(0,trials))#
+	subsingle <- array(rep(0,trials))#
+	subdouble <- array(rep(0,trials))#
+	subchao <- array(rep(0,trials))#
+#
+	for (trial in 1:trials)	{#
+		pool <- ids#
+		left <- length(pool)#
+		seen <- array(data=rep(0,length(ab)))#
+		subfreq <- array(rep(0,length(ab)))#
+		if (method != "rarefaction" && method != "CR")	{#
+			udrawn <- 0#
+			# equation new to version 3.0#
+			# the exponent corrects for downwards bias#
+			while (udrawn < q)	{#
+			# draw a specimen#
+				x <- floor(runif(1,min=1,max=left+1))#
+			# add to frequency and taxon sums if species has#
+			#  not been drawn previously#
+				subfreq[pool[x]] <- subfreq[pool[x]] + 1#
+				if (seen[pool[x]] == 0)	{#
+					if (pool[x] != mostfrequent && (ignore == 0 || ab[pool[x]] > 1))	{#
+						udrawn <- udrawn + freq[pool[x]]#
+					}#
+					seen[pool[x]] <- 1#
+			# randomly throw back some draws that put the sum over q#
+			#  (an even better algorithm added in version 3.0)#
+					if (runif(1) <= freq[pool[x]] || udrawn < q)	{#
+						s[trial] <- s[trial] + 1#
+					} else	{#
+						subfreq[pool[x]] <- subfreq[pool[x]] - 1#
+					}#
+				}#
+			# decrease pool of specimens not yet drawn#
+				pool[x] <- pool[left]#
+				left <- left - 1#
+			}#
+		} else	{#
+			i <- 0#
+			draws <- 0#
+			while (i < q)	{#
+				draws <- draws + 1#
+				x <- floor(runif(1,min=1,max=length(ids)-draws+2))#
+				subfreq[pool[x]] <- subfreq[pool[x]] + 1#
+				if (pool[x] != mostfrequent)	{#
+					i <- i + 1#
+				}#
+				if (seen[pool[x]] == 0)	{#
+					seen[pool[x]] <- 1#
+					s[trial] <- s[trial] + 1#
+				}#
+				pool[x] <- pool[length(ids)-draws+1]#
+			}#
+		}#
+		for (i in 1:length(ab))	{#
+			if (subfreq[i] == 1 && i != mostfrequent)	{#
+				subsingle[trial] <- subsingle[trial] + 1#
+			} else if (subfreq[i] == 2 && i != mostfrequent)	{#
+				subdouble[trial] <- subdouble[trial] + 1#
+			}#
+		}#
+		if (subsingle[trial] > 0 && subdouble[trial] > 0)	{#
+			subchao[trial] <- s[trial] + subsingle[trial]**2/(2*subdouble[trial])#
+		} else	{#
+			subchao[trial] <- s[trial]#
+		}#
+		drawn[trial] <- sum(subfreq)#
+		if (mostfrequent != 0)	{#
+			mostfrequentdrawn[trial] <- subfreq[mostfrequent]#
 		}#
 	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-rownames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
+#
+	# compute vectors of non-zero counts#
+	options(warn=-1)#
+	s2 <- sort(sqrt(s-1))^2+1#
+	d2 <- sort(sqrt(drawn-1))^2+1#
+	m2 <- sort(sqrt(mostfrequentdrawn-1))^2+1#
+	ss2 <- sort(sqrt(subsingle-1))^2+1#
+	options(warn=0)#
+#
+	# compute geometric means#
+	params["subsampled richness"] <- exp(mean(log(s2))) * length(s2)/length(s)#
+	params["specimens drawn"] <- exp(mean(log(d2))) * length(d2)/length(drawn)#
+	meanmost <- 0#
+	if (sum(mostfrequentdrawn) > 0)	{#
+		meanmost <- exp(mean(log(m2))) * length(m2)/length(mostfrequentdrawn)#
+	}#
+	meansubsingle <- exp(mean(log(ss2))) * length(ss2)/length(subsingle)#
+#
+	params["subsampled u"] <- 1 - meansubsingle / (params["specimens drawn"] - meanmost)#
+	params["subsampled Chao 1"] <- exp(mean(log(subchao)))#
+	#return(params)#
+	s.temp<-exp((log(s2))) * length(s2)/length(s)#
+	std.err<-sd(s.temp)/sqrt(length(s.temp))#
+	#out<-list(params,std.err)#
+	#return(out)#
+	return(params)#
 }
-permute.pollen.cor(WLtaxcc)
-rownames(datamatx)
-rownames(WLtaxcc)
-WLtaxcc
-permute.pollen.cor<-function(datamatx){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[k,]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[j,]#
-			cor.out<-cor.test(vect1,vect2,method="spearman")#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			ps[j,k]<-cor.out$p.value[[1]]#
+# RUN ###############################
+# Download diatom data from Neotoma#
+# dia<-get_dataset(datasettype="diatom surface sample",gpid=c("United States","Canada","Mexico"))#
+# diadl<-get_download(dia)#
+load('~/Desktop/Research_Git/DiatomMetacommunities/DiatomSS-Feb2020.Rdata')#
+#
+# dia<-get_dataset(datasettype="diatom surface sample",gpid="United States")#
+# diadl<-get_download(dia)#
+# load('~/Desktop/Research_Git/DiatomMetacommunities/US-diatom-dl.Rdata')
+meta.table<-read.csv("~/Desktop/Research_Git/DiatomMetacommunities/diatom_surfacesamp_metadata.csv")
+water.meta<-read.csv("~/Desktop/Research_Git/DiatomMetacommunities/waterchemistry_data.csv")
+taxonomy<-read.csv("~/Desktop/Research_Git/DiatomMetacommunities/Diatom_species_emili_updated.csv")
+# standardize the taxonomy________________________#
+dia.update<-list()#
+for (i in 1:length(diadl)){#
+	# print(i)#
+	countsi<-diadl[[i]]$counts#
+	spp<-colnames(countsi)#
+#
+	if (nrow(countsi)>1){#
+		countsi<-countsi[1,]#
+	}#
+	# taxonomy[taxonomy[,1] %in% spp,]#
+	new.names<-taxonomy[taxonomy[,1] %in% spp,2]#
+	# setdiff(spp,taxonomy[taxonomy[,1] %in% spp,1])#
+	countsi<-as.vector(countsi)#
+	names(countsi)<-new.names#
+	# cut species flagged to be removed in the metadata#
+	cutcols<-which(names(countsi)=="REMOVE")#
+	if (length(cutcols)==0){#
+		countsi<-countsi#
+	} else {#
+		countsi<-countsi[-cutcols]#
+	}#
+	# combine duplicates#
+	unique.spp<-unique(names(countsi))#
+	taxon.vect<-c()#
+	for (j in 1:length(unique.spp)){#
+		sppj<-unique.spp[j]#
+		sppj.inds<-which(names(countsi)==sppj)#
+		if (length(sppj.inds)==1){#
+			taxon.vect[j]<-countsi[sppj.inds]#
+		} else {#
+			sppj.sum<-sum(countsi[sppj.inds])#
+			names(sppj.sum)<-sppj#
+			taxon.vect[j]<-sppj.sum#
 		}#
 	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-rownames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
+	names(taxon.vect)<-unique.spp#
+	dia.update[[i]]<-taxon.vect	#
+}#
+names(dia.update)<-names(diadl)#
+#
+# generate a sitesxspecies table________________________#
+full.spp.list<-unique(taxonomy[,2])#
+# full.spp.list<-full.spp.list[-which(full.spp.list %in% "REMOVE")]#
+sitesxspp.matx<-matrix(NA,nr=length(full.spp.list),nc=length(dia.update))#
+for (k in 1:length(dia.update)){#
+	print(k)#
+	diak<-dia.update[[k]]#
+	missingspp<-setdiff(full.spp.list,names(diak))#
+	# setdiff(names(diak),full.spp.list)#
+	zeros<-rep(0,length(missingspp))#
+	names(zeros)<-missingspp#
+	diak.complete<-c(diak,zeros)#
+	dia.order<-order(names(diak.complete))#
+	sitesxspp.matx[,k]<-diak.complete[dia.order]#
+}#
+#
+rownames(sitesxspp.matx)<-sort(full.spp.list)#
+colnames(sitesxspp.matx)<-names(dia.update)#
+#
+sitesxspp.matx<-sitesxspp.matx[-which(rownames(sitesxspp.matx)=="REMOVE"),]#
+#
+# Generate a genus-level table#
+spp.vect<-rownames(sitesxspp.matx)#
+split.list<-strsplit(spp.vect,split=" ")#
+#
+genera<-c()#
+for (i in 1:length(split.list)){#
+	genera[i]<-split.list[[i]][1]#
+}#
+uni.gens<-unique(genera)#
+#
+genus.matx<-matrix(NA,nr=length(uni.gens),nc=ncol(sitesxspp.matx))#
+for (i in 1:length(uni.gens)){#
+	geni<-uni.gens[i]#
+	inds<-which(genera==geni)#
+	sub.matx<-sitesxspp.matx[inds,]#
+	if (length(inds)==1){#
+		genus.matx[i,]<-sub.matx#
+	} else {#
+		genus.matx[i,]<-colSums(sub.matx)#
+	}#
+}#
+#
+rownames(genus.matx)<-uni.gens#
+colnames(genus.matx)<-colnames(sitesxspp.matx)#
+#
+# sitesxspp.matx<-genus.matx # UNCOMMENT HERE TO RUN ALL ANALYSES AT GENUS LEVEL
+# simple correlations_________________#
+occmatx<-sitesxspp.matx#
+#
+# calculate richness__#
+# Shannon entropy#
+Ha<-diversity(t(occmatx))#
+# calculate true alpha diversity from Shannon entropy#
+a<-exp(Ha)#
+mean.a<-mean(a)#
+#
+# SQS__#
+sqs.val<-c()#
+for (i in 1:ncol(occmatx)){#
+	sampi<-occmatx[,i]#
+	sampi.pres<-which(sampi>0)#
+	sqs.out<-sqs(sampi.pres,0.8,ignore.singletons=FALSE)#
+	sqs.val[i]<-sqs.out["subsampled richness"]#
+}#
+names(sqs.val)<-colnames(occmatx)
+meta.table
+head(waterchem)
+waterchem<-read.csv("~/Desktop/Research_Git/DiatomMetacommunities/waterchemistry_data.csv")
+waterchem
+head(waterchem)
+names(meta.table)
+meta.table$dataset.id
+waterchem$diatommss.dataset.id==meta.table$dataset.id
+waterchem$diatommss.dataset.id
+waterchem$diatomss.dataset.id==meta.table$dataset.id
+dia.wc.meta<-cbind(meta.table$lat,meta.table$long,waterchem)
+length(a)
+length(meta.table$lat)
+1400000000/1200
+names(dia.wc.meta)
+names(a)==dia.wc.meta$diatomss.dataset.id
+?mlr
+??mlr
+names(dia.wc.meta)
+?
+lm
+dia.wc.meta<-cbind(meta.table$lat,meta.table$long,waterchem,a,sqs.val)
+names(dia.wc.meta)
+typeof(dia.wc.meta)
+dia.wc.meta<-cbind(meta.table$lat,meta.table$long,waterchem,a,sqs.val)
+typeof(dia.wc.meta)
+dia.wc.meta<-as.data.frame(dia.wc.meta)
+dia.wc.meta
+lm(a~meta.table$lat+meta.table$long,data=dia.wc.meta)
+names(dia.wc.meta)
+lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions+Secchi.depth+Silicon.dioxide+Sodium.ions+Specific.conductance+Sulfate.ions,data=dia.wc.meta)
+?lm
+lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions+Secchi.depth+Silicon.dioxide+Sodium.ions+Specific.conductance+Sulfate.ions,data=dia.wc.meta,na.action=na.omit)
+lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions,data=dia.wc.meta,na.action=na.omit)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions,data=dia.wc.meta,na.action=na.omit)
+summary(mod)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A,data=dia.wc.meta,na.action=na.omit)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions+Secchi.depth,data=dia.wc.meta,na.action=na.omit)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions=,data=dia.wc.meta,na.action=na.omit)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions,data=dia.wc.meta,na.action=na.omit)
+dia.wc.meta$Secchi.depth
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions+Secchi.depth,data=dia.wc.meta,na.action=na.omit)
+is.numeric(dia.wc.meta$Secchi.depth)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions+Silicon.dioxide+Sodium.ions+Specific.conductance,data=dia.wc.meta,na.action=na.omit)
+mod<-lm(a~meta.table$lat+meta.table$long+Alkalinity+Calcium.ions+Chloride.ions+Chlorophyll.A+Dissolved.organic.carbon+Magnesium.ions+pH+Potassium.ions+Silicon.dioxide+Sodium.ions+Specific.conductance+Sulfate.ions,data=dia.wc.meta,na.action=na.omit)
+summary(mod)
+meta.sub<-cbind(meta.table$lat,meta.table$long,Alkalinity,Calcium.ions,Chloride.ions,Chlorophyll.A,Dissolved.organic.carbon,Magnesium.ions,pH,Potassium.ions,Silicon.dioxide,Sodium.ions,Specific.conductance,Sulfate.ions,Secci.depth)
+meta.sub<-dia.wc.meta[,c(meta.table$lat,meta.table$long,Alkalinity,Calcium.ions,Chloride.ions,Chlorophyll.A,Dissolved.organic.carbon,Magnesium.ions,pH,Potassium.ions,Silicon.dioxide,Sodium.ions,Specific.conductance,Sulfate.ions,Secci.depth)]
+meta.sub<-dia.wc.meta[,c("meta.table$lat","meta.table$long","Alkalinity","Calcium.ions","Chloride.ions","Chlorophyll.A","Dissolved.organic.carbon","Magnesium.ions","pH","Potassium.ions","Silicon.dioxide","Sodium.ions","Specific.conductance","Sulfate.ions","Secci.depth")]
+names(dia.wc.meta)
+meta.sub<-dia.wc.meta[,c("meta.table$lat","meta.table$long","Alkalinity","Calcium.ions","Chloride.ions","Chlorophyll.A","Dissolved.organic.carbon","Magnesium.ions","pH","Potassium.ions","Silicon.dioxide","Sodium.ions","Specific.conductance","Sulfate.ions","Secchi.depth")]
+head(meta.sub)
+sum(complete.cases(meta.sub))
+for (i in 1:ncol(meta.sub)){#
+	ccs<-sum(complete.cases(meta.sub[,-i]))#
+	prinnt(ccs)#
 }
-permute.pollen.cor<-function(datamatx){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[k,]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[j,]#
-			cor.out<-cor.test(vect1,vect2,method="spearman")#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			ps[j,k]<-cor.out$p.value[[1]]#
+for (i in 1:ncol(meta.sub)){#
+	ccs<-sum(complete.cases(meta.sub[,-i]))#
+	print(ccs)#
+}
+meta.sub[,i]
+is.na(meta.sub[,i])
+nas<-c()#
+ccs<-c()#
+for (i in 1:ncol(meta.sub)){#
+	nas[i]<-sum(is.na(meta.sub[,i]))#
+	ccs[i]<-sum(complete.cases(meta.sub[,-i]))#
+}
+nas
+nrow(meta.sub)
+1275-708
+##########################################################
+# Code to analyze diatom surface sample data from Neotoma#
+# copyright: 2019#
+# M. Allison Stegner#
+##########################################################
+#
+# LIBRARIES ######################
+library(neotoma) #
+# devtools::install_github("allisonstegner/NeotomaRfns")#
+library(NeotomaRfns)#
+library(betapart)#
+library(vegan)#
+#
+library(maps)#
+library(maptools)#
+library(rgeos)#
+library(rgdal)#
+library(raster)#
+library(geosphere)#
+library(spatial)#
+#
+# FUNCTIONS ######################
+extract.coords<-function(pol_dl_obj){#
+	coords<-matrix(NA,nc=3,nr=length(pol_dl_obj))#
+	for (i in 1:length(pol_dl_obj)){#
+		coords[i,]<-c(pol_dl_obj[[i]]$dataset$dataset.meta$dataset.id,pol_dl_obj[[i]]$dataset$site.data$long,pol_dl_obj[[i]]$dataset$site.data$lat)	#
+	}#
+	return(coords)#
+}#
+#
+# point.in.region________________________________________________________#
+point.in.region<-function(point.long,point.lat,regionk){#
+	in.region<-c()#
+	for (i in 1:length(regionk@polygons)){#
+		in.polygon<-c()#
+		in.hole<-c()#
+		for(j in 1:length(regionk@polygons[[i]]@Polygons)){#
+			coords.ij<-regionk@polygons[[i]]@Polygons[[j]]@coords#
+			in.polygon[j]<-point.in.polygon(point.long,point.lat,coords.ij[,1],coords.ij[,2])#
+			if (regionk@polygons[[i]]@Polygons[[j]]@hole==TRUE){#
+				in.hole[j]<-1#
+			} else {#
+				in.hole[j]<-0#
+			}	#
+		}#
+		temp<-cbind(in.hole,in.polygon)#
+		if (sum(c(temp[,2]-temp[,1]) %in% 1)>0 && sum(c(temp[,2]-temp[,1]) %in% 0)==0){#
+			in.region[i]<-1#
+		} else {#
+			in.region[i]<-0#
+		}	#
+	}#
+#
+	if (sum(in.region)>0){ in.ecoregion<-1#
+	} else { in.ecoregion<-0 }	#
+	return(in.ecoregion)#
+}#
+# assign.point________________________________________________________#
+assign.point<-function(point.long,point.lat,ecoregions){#
+	region.list<-unique(ecoregions$NA_L1NAME)#
+	region.list<-region.list[-1]#
+	classify.pt<-matrix(NA,nr=length(region.list),nc=2)#
+	for (i in 1:length(region.list)){#
+		regionk<-ecoregions[ecoregions$NA_L1NAME==region.list[i],]#
+		inYN<-point.in.region(point.long,point.lat,regionk)#
+		classify.pt[i,]<-c(as.character(region.list[i]),inYN)#
+	}#
+	classify.pt<-as.data.frame(classify.pt)#
+	if (sum(as.numeric(as.vector(classify.pt[,2])))==0){#
+	# some sites fall beyond the EPA ecoregion shapefiles#
+	# those sites are assigned to the nearest polygon in this if statement#
+		min.dist3<-c()#
+		for (i in 1:length(region.list)){#
+			regionk<-ecoregions[ecoregions$NA_L1NAME==region.list[i],]#
+			min.dist2<-c()#
+			for (j in 1:length(regionk@polygons)){#
+				min.dist<-c()#
+				for (k in 1: length(regionk@polygons[[j]]@Polygons)){#
+					coords.ij<-regionk@polygons[[j]]@Polygons[[k]]@coords#
+					min.dist[k]<-min(distGeo(c(point.long,point.lat),coords.ij))#
+				}#
+				min.dist2[j]<-min(min.dist)	#
+			}#
+			min.dist3[i]<-min(min.dist2)#
+		}	#
+		out<-as.character(region.list[which.min(min.dist3)])#
+	} else {#
+		out<-as.character(classify.pt[which(classify.pt[,2]==1),1])#
+	}#
+	return(out)#
+}#
+#
+# plot.div___________________________________________________________-#
+plot.div<-function(div.quant,binmeans,lab){#
+	if (!is.numeric(binmeans)){#
+		cats<-c(1:length(binmeans))#
+		plot(cats,div.quant[,2],pch=16,xlab="",ylab=lab,ylim=c(min(div.quant,na.rm=T),max(div.quant,na.rm=T)),las=1,xaxt="n")#
+		segments(y0=div.quant[,1],x0=cats,y1=div.quant[,3],x1=cats)#
+		axis(1,at=seq(1:length(binmeans)),labels=binmeans,cex.axis=0.5,las=3)#
+	} else {#
+plot(binmeans,div.quant[,2],pch=16,xlab="Latitude",ylab=lab,ylim=c(min(div.quant,na.rm=T),max(div.quant,na.rm=T)),las=1)#
+		segments(y0=div.quant[,1],x0=binmeans,y1=div.quant[,3],x1=binmeans)#
+	}#
+}#
+#
+# sqs version 3.2 by John Alroy#
+# performs shareholder quorum subsampling on an array of specimen counts#
+# can be used to perform classical rarefaction instead of SQS#
+# written 29 July 2010; version 2.0 completed 14 February 2011; versions 3.0,#
+#  3.1, 3.2, and 3.3 written 3 June, 12 July, 19-23 August, and 2 December 2011#
+# change in version 3.3: fixed bug in computation of maximum estimated coverage#
+# changes in version 3.2: specimens drawn and subsampled U are based on#
+#  geometric means of counts; ignore.singletons option added#
+# change in version 3.1: an even better frequency adjustment involving#
+#  singletons and doubletons#
+# changes in version 3.0: an even better subsampling algorithm involving a new#
+#  adjustment to u combined with a new throwback criterion#
+# changes in version 2.0: improved subsampling algorithm; including the dominant #
+#  taxon is now the default; improved reporting of errors and basic statistics#
+# warning: do not use this program with taxonomic occurrence data drawn from#
+#  multiple published references because it is not designed to count#
+#  single-reference taxa or adjust for long taxonomic lists#
+# warning: version 1.0 yields estimates that are downwards-biased when q < 0.6#
+#  and abundance distributions are highly uneven#
+#
+###ARGUMENTS####
+##ab = abundance data (= count) vector#
+##q = quorum (desired frequency coverage level, between 0 and 1)#
+##trials = number of subsampling trials (default 100, recommended value at least 1000)#
+##method = subsampling method (default SQS, option "rarefaction" a.k.a. "CR")#
+##dominant = include/exclude dominant (most common) taxon (default include, option "exclude" a.k.a. "no")#
+#
+###OUTPUTS####
+##raw richness = the number of cells in the data array (i.e., the number of taxa)#
+##Good's u = the index of frequency coverage described by Good (1953); the same equation is used during subsampling trials to see whether the quorum has been achieved, but this value pertains to the entire data set#
+##subsampled richness = the geometric mean number of taxa found in subsamples (as generated either by SQS or rarefaction)#
+##subsampled u = the mean value of Good's u based on the randomly drawn subsamples#
+##Chao 1 = the simple estimate of species pool size produced by the index described in Chao (1984), which may yield noisy and/or sample size-biased estimates (included for comparative purposes only)#
+##subsampled Chao 1 = the same estimate based only on counts included in subsamples (averaged across subsampling trials), which can be much lower than the overall Chao 1 estimate (unfortunately)#
+##k = the generating parameter of the geometric series distribution, which is computed with a simple regression of log abundance vs. abundance rank#
+##Fisher's alpha = the generating parameter of the log series distribution, which is generated with a standard recursive equation involving observed richness and total abundance#
+##Shannon's H = the standard information index, i.e., -1 times the sum of fi log fi where fi = the proportional frequency of the ith taxon in the sample#
+##Hurlbert's PIE = the sample-size corrected probability of interspecific encounter index defined by Hurlbert(1971)#
+##dominance = the Berger-Parker dominance index, i.e., the proportional frequency of the most common taxon#
+##specimens = the total count across the sample#
+##singletons = the number of taxa with a count of 1 (used to compute Good's u and Chao 1)#
+##doubletons = the number of taxa with a count of 2 (used to compute Chao 1)#
+##specimens drawn = the geometric mean number of specimens drawn in each random subsample#
+sqs<-function(ab,q,trials,method,ignore.singletons,dominant)	{#
+#
+	params <- array(data=NA,dim=0)#
+	if (missing(trials))	{#
+		trials <- 100#
+	}#
+	if (missing(method))	{#
+		method <- ""#
+	} else if (method != "" && method != "rarefaction" && method != "CR")	{#
+		return(print('If the method is rarefaction enter method="rarefaction" or "CR"',quote=F))#
+	}#
+	if ((q <= 0 || q >= 1) && method != "rarefaction" && method != "CR")	{#
+		return(print("If the method is SQS the quota must be greater than zero and less than one",quote=F))#
+	} else if (q < 1 && (method == "rarefaction" || method == "CR"))	{#
+		return(print("If the method is rarefaction the quota must be an integer",quote=F))#
+	}#
+	ignore <- 0#
+	if (! missing(ignore.singletons) && (ignore.singletons == T || ignore.singletons == "yes" || ignore.singletons == "y"))	{#
+		ignore <- 1#
+	}#
+	if (missing(dominant))	{#
+		dominant <- 0#
+	} else if (dominant != "" && dominant != "exclude" && dominant != "no")	{#
+		return(print('To exclude the dominant taxon, enter dominant="exclude" or "no"',quote=F))#
+	}#
+#
+	# compute basic statistics#
+	specimens <- sum(ab)#
+	singletons <- 0#
+	doubletons <- 0#
+	highest <- 0#
+	for (i in 1:length(ab))	{#
+		if (ab[i] == 1)	{#
+			singletons <- singletons + 1#
+		} else if (ab[i] == 2)	{#
+			doubletons <- doubletons + 1#
+		}#
+		if (ab[i] > highest)	{#
+			highest <- ab[i]#
+			mostfrequent <- i#
 		}#
 	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
-}
-permute.pollen.cor(t(WLtaxcc))
-permute.pollen.cor<-function(datamatx){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[,k]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[,j]#
-			cor.out<-cor.test(vect1,vect2,method="spearman")#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			ps[j,k]<-cor.out$p.value[[1]]#
+	u <- 1 - singletons / specimens#
+	# optionally, exclude the dominant taxon#
+	if (dominant == "exclude" || dominant == "no")	{#
+		u <- 1 - singletons / (specimens - highest)#
+	}#
+#
+	if (u == 0)	{#
+		return(print("Coverage is zero because all taxa are singletons",quote=F))#
+	}#
+#
+	# compute raw taxon frequencies (temporarily)#
+	freq <- ab / specimens#
+#
+	# standard recursive equation for Fisher's alpha#
+	alpha <- 10#
+	oldalpha <- 0#
+	while (abs(alpha - oldalpha) > 0.0000001)	{#
+		oldalpha <- alpha#
+		alpha <- length(ab) / log(1 + specimens/alpha)#
+	}#
+#
+	params["raw richness"] <- length(ab)#
+	params["Good's u"] <- u#
+	params["subsampled richness"] <- NA#
+	params["subsampled u"] <- NA#
+	params["Chao 1"] <- length(ab) + singletons**2/(2* doubletons)#
+	params["subsampled Chao 1"] <- NA#
+	# governing parameter of the geometric series distribution#
+	params["k"] <- abs(lm(log(sort(freq)) ~ c(1:length(freq)))$coefficients[2])#
+	params["Fisher's alpha"] <- alpha#
+	params["Shannon's H"] <- -1 * sum(freq * log(freq))#
+	params["Hurlbert's PIE"] <- (1 - sum(freq**2)) * length(ab) / (length(ab) - 1)#
+	params["dominance"] <- highest / specimens#
+	params["specimens"] <- specimens#
+	params["singletons"] <- singletons#
+	params["doubletons"] <- doubletons#
+	params["specimens drawn"] <- 0#
+	if (dominant != "exclude" && dominant != "no")	{#
+		highest <- 0#
+		mostfrequent <- 0#
+	}#
+#
+	# return if the rarefaction quota is equal to or higher than the#
+	#  specimen count#
+	if (method == "rarefaction" && q >= specimens - highest)	{#
+		return(params)#
+	}#
+#
+	# compute taxon frequencies (tweak added in version 3.1)#
+	freq <- ab - (singletons + doubletons / 2) / length(ab)#
+	freq <- freq / (specimens - highest)#
+#
+	# return if the quorum target is higher than estimated coverage#
+	if ((q > sum(freq) && method != "rarefaction" && method != "CR") || (q >= sum(ab)))	{#
+		return(params)#
+	}#
+#
+	# create an array in which each cell corresponds to one specimen#
+	ids <- array()#
+	n <- 0#
+	for (i in 1:length(ab))	{#
+		for (j in 1:ab[i])	{#
+			n <- n + 1#
+			ids[n] <- i#
 		}#
 	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
+#
+	# subsampling trial loop#
+	# s will be the subsampled taxon count#
+	s <- array(rep(0,trials))#
+	drawn <- array(rep(0,trials))#
+	mostfrequentdrawn <- array(rep(0,trials))#
+	subsingle <- array(rep(0,trials))#
+	subdouble <- array(rep(0,trials))#
+	subchao <- array(rep(0,trials))#
+#
+	for (trial in 1:trials)	{#
+		pool <- ids#
+		left <- length(pool)#
+		seen <- array(data=rep(0,length(ab)))#
+		subfreq <- array(rep(0,length(ab)))#
+		if (method != "rarefaction" && method != "CR")	{#
+			udrawn <- 0#
+			# equation new to version 3.0#
+			# the exponent corrects for downwards bias#
+			while (udrawn < q)	{#
+			# draw a specimen#
+				x <- floor(runif(1,min=1,max=left+1))#
+			# add to frequency and taxon sums if species has#
+			#  not been drawn previously#
+				subfreq[pool[x]] <- subfreq[pool[x]] + 1#
+				if (seen[pool[x]] == 0)	{#
+					if (pool[x] != mostfrequent && (ignore == 0 || ab[pool[x]] > 1))	{#
+						udrawn <- udrawn + freq[pool[x]]#
+					}#
+					seen[pool[x]] <- 1#
+			# randomly throw back some draws that put the sum over q#
+			#  (an even better algorithm added in version 3.0)#
+					if (runif(1) <= freq[pool[x]] || udrawn < q)	{#
+						s[trial] <- s[trial] + 1#
+					} else	{#
+						subfreq[pool[x]] <- subfreq[pool[x]] - 1#
+					}#
+				}#
+			# decrease pool of specimens not yet drawn#
+				pool[x] <- pool[left]#
+				left <- left - 1#
+			}#
+		} else	{#
+			i <- 0#
+			draws <- 0#
+			while (i < q)	{#
+				draws <- draws + 1#
+				x <- floor(runif(1,min=1,max=length(ids)-draws+2))#
+				subfreq[pool[x]] <- subfreq[pool[x]] + 1#
+				if (pool[x] != mostfrequent)	{#
+					i <- i + 1#
+				}#
+				if (seen[pool[x]] == 0)	{#
+					seen[pool[x]] <- 1#
+					s[trial] <- s[trial] + 1#
+				}#
+				pool[x] <- pool[length(ids)-draws+1]#
+			}#
+		}#
+		for (i in 1:length(ab))	{#
+			if (subfreq[i] == 1 && i != mostfrequent)	{#
+				subsingle[trial] <- subsingle[trial] + 1#
+			} else if (subfreq[i] == 2 && i != mostfrequent)	{#
+				subdouble[trial] <- subdouble[trial] + 1#
+			}#
+		}#
+		if (subsingle[trial] > 0 && subdouble[trial] > 0)	{#
+			subchao[trial] <- s[trial] + subsingle[trial]**2/(2*subdouble[trial])#
+		} else	{#
+			subchao[trial] <- s[trial]#
+		}#
+		drawn[trial] <- sum(subfreq)#
+		if (mostfrequent != 0)	{#
+			mostfrequentdrawn[trial] <- subfreq[mostfrequent]#
+		}#
+	}#
+#
+	# compute vectors of non-zero counts#
+	options(warn=-1)#
+	s2 <- sort(sqrt(s-1))^2+1#
+	d2 <- sort(sqrt(drawn-1))^2+1#
+	m2 <- sort(sqrt(mostfrequentdrawn-1))^2+1#
+	ss2 <- sort(sqrt(subsingle-1))^2+1#
+	options(warn=0)#
+#
+	# compute geometric means#
+	params["subsampled richness"] <- exp(mean(log(s2))) * length(s2)/length(s)#
+	params["specimens drawn"] <- exp(mean(log(d2))) * length(d2)/length(drawn)#
+	meanmost <- 0#
+	if (sum(mostfrequentdrawn) > 0)	{#
+		meanmost <- exp(mean(log(m2))) * length(m2)/length(mostfrequentdrawn)#
+	}#
+	meansubsingle <- exp(mean(log(ss2))) * length(ss2)/length(subsingle)#
+#
+	params["subsampled u"] <- 1 - meansubsingle / (params["specimens drawn"] - meanmost)#
+	params["subsampled Chao 1"] <- exp(mean(log(subchao)))#
+	#return(params)#
+	s.temp<-exp((log(s2))) * length(s2)/length(s)#
+	std.err<-sd(s.temp)/sqrt(length(s.temp))#
+	#out<-list(params,std.err)#
+	#return(out)#
+	return(params)#
 }
-permute.pollen.cor(t(WLtaxcc))
-permute.pollen.cor((WLtaxcc))
-ibrary(roxygen2)#
+load('~/Desktop/Research_Git/DiatomMetacommunities/DiatomSS-Feb2020.Rdata')
+# map sites#
+X<-c(-160,-50)#
+Y<-c(10,89.99)#
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F)
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+map_dl<-function(dl_obj,X,Y,add,col=NULL,label.sites=FALSE,return.table=TRUE,cex=NULL){#
+	require(maps)#
+	lat<-c()#
+	long<-c()#
+	dataset.id<-c()#
+	site.name<-c()#
+	site.id<-c()#
+	for (i in 1:length(dl_obj)){#
+		long[i]<-dl_obj[[i]]$dataset$site.data$long#
+		lat[i]<-dl_obj[[i]]$dataset$site.data$lat#
+		dataset.id[i]<-dl_obj[[i]]$dataset$dataset.meta$dataset.id#
+		site.name[i]<-dl_obj[[i]]$dataset$site.data$site.name#
+		site.id[i]<-dl_obj[[i]]$dataset$site.data$site.id#
+	}#
+	if (return.table==TRUE){#
+		out<-as.data.frame(cbind(site.name,dataset.id,site.id,lat,long))#
+		return(out)#
+	} else {#
+		if (add==FALSE){#
+			map("world",xlim=X,ylim=Y)#
+			map("state",add=T)#
+			box()#
+		} #
+		if (!is.null(col)) points(long,lat,pch=16,col=col,cex=cex)#
+		else points(long,lat,pch=1)#
+#
+		if (label.sites==TRUE) text(long,lat,site.id,cex=0.5,pos=4,offset=0.2)#
+	}	#
+}
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex)
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex.05)
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+# map sites#
+X<-c(-160,-50)#
+Y<-c(10,89.99)#
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+map_dl(diadl,X,Y,add=FALSE,col="117733",label.sites=FALSE,return.table=F,cex=0.5)
+# map sites#
+X<-c(-160,-50)#
+Y<-c(10,89.99)#
+#
+setEPS()#
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)#
+dev.off()
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+setEPS()
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+getwd()
+setEPS()
+postscript("~/Desktop/Research_Git/DiatomMetacommunities/Correlations/sites_map.eps")
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)
+dev.off()
+postscript("~/Desktop/Research_Git/DiatomMetacommunities/sites_map.eps")
+# map sites#
+X<-c(-160,-50)#
+Y<-c(10,89.99)#
+#
+setEPS()#
+postscript("~/Desktop/Research_Git/DiatomMetacommunities/sites_map.eps")#
+#
+map_dl(diadl,X,Y,add=FALSE,col=117733,label.sites=FALSE,return.table=F,cex=0.5)#
+dev.off()#
+#
+# # # # generate m
+library(roxygen2)#
 library(devtools)
-library(devtools)
-library(roxygen2)
-setwd("~/Desktop/Research_Git/NeotomaRfns")#
-document()
-pairwise_correlation<-function(datamatx,method){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[,k]#
-		for (j in k:ncol(datamatx)){#
-			vect2<-datamatx[,j]#
-			cor.out<-cor.test(vect1,vect2,method=method)#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			ps[j,k]<-cor.out$p.value[[1]]#
-		}#
-	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
-}
-pairwise_correlation(WLtaxcc,"spearman")
 setwd("~/Desktop/Research_Git/NeotomaRfns")
 document()
-library(NeotomaRfns)
-pairwise_spearman(WLtaxcc,"spearman")
-pairwise_correlation(WLtaxcc,"spearman")
-WLspear<-pairwise_correlation(WLtaxcc,"spearman")
-which(WLspear[[2]]<0.05)
-nonsig<-which(WLspear[[2]]>0.05)
-WLspear[[1]][nonsig]
-WLspear[[1]][nonsig]<-NA
-WLspear[[1]]
-WLspear[[2]][nonsig]<-NA
-WLspear<-pairwise_correlation(t(WLtaxcc),"spearman")
-WLspear
-nonsig<-which(WLspear[[2]]>0.05)#
-#
-WLspear[[1]][nonsig]<-NA#
-WLspear[[2]][nonsig]<-NA
-WLspear[[1]]
-2^25
-25^2
-25+24+23+22+21+20+19+18+17+16+15+14+13+12+11+10+9+8+7+6+5+4+3+2+1
-(ncol(datamatx)*(ncol(datamatx)+1))/2
-datamatx<-WLtaxcc
-(ncol(datamatx)*(ncol(datamatx)+1))/2
-(ncol(datamatx)*(ncol(datamatx)+1))
-ncol(datamatx)
-datamatx<-t(WLtaxcc)
-(ncol(datamatx)*(ncol(datamatx)+1))
-ncol(datamatx)
-ncol(datamatx)+1)
-(ncol(datamatx)*(ncol(datamatx)+1))/2
-25+24+23+22+21+20+19+18+17+16+15+14+13+12+11+10+9+8+7+6+5+4+3+2+1+26+27+28
-pairwise_correlation<-function(datamatx,method,pval.adjust=F){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:ncol(datamatx)){#
-		vect1<-datamatx[,k]#
-		for (j in (k+1):ncol(datamatx)){#
-			vect2<-datamatx[,j]#
-			cor.out<-cor.test(vect1,vect2,method=method)#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			if(pval.adjust==T){#
-				n.tests<-(ncol(datamatx)*(ncol(datamatx)+1))/2#
-				ps[j,k]<-p.adjust(cor.out$p.value[[1]],method="holm",n=n.tests)#
-			} else {#
-				ps[j,k]<-cor.out$p.value[[1]]#
-			}#
-		}#
-	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
-}
-WLspear<-pairwise_correlation(t(WLtaxcc),"spearman")
-WLspear<-pairwise_correlation(t(WLtaxcc),"spearman",T)
-pairwise_correlation<-function(datamatx,method,pval.adjust=F){#
-	rhos<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	ps<-matrix(NA,nr=ncol(datamatx),nc=ncol(datamatx))#
-	for (k in 1:(ncol(datamatx)-1)){#
-		vect1<-datamatx[,k]#
-		for (j in (k+1):ncol(datamatx)){#
-			vect2<-datamatx[,j]#
-			cor.out<-cor.test(vect1,vect2,method=method)#
-			rhos[j,k]<-cor.out$estimate[[1]]#
-			if(pval.adjust==T){#
-				n.tests<-(ncol(datamatx)*(ncol(datamatx)+1))/2#
-				ps[j,k]<-p.adjust(cor.out$p.value[[1]],method="holm",n=n.tests)#
-			} else {#
-				ps[j,k]<-cor.out$p.value[[1]]#
-			}#
-		}#
-	}#
-	rownames(rhos)<-colnames(rhos)<-rownames(ps)<-colnames(ps)<-colnames(datamatx)#
-	out<-list(rhos=rhos,ps=ps)#
-	return(out)#
-}
-WLspear<-pairwise_correlation(t(WLtaxcc),"spearman",T)
-WLspear
-WLspear<-pairwise_correlation(t(WLtaxcc),"spearman")
-WLspear
-WLspear<-pairwise_correlation(t(WLtaxcc),"spearman",T)
-nonsig<-which(WLspear[[2]]>0.05)#
-#
-WLspear[[1]][nonsig]<-NA#
-WLspear[[2]][nonsig]<-NA
-WLspear[[1]]
-# ordinations#
-pcWL<-principal_curve(sqrt(t(WLpct)))#
-plot(pcWL$lambda,type="l")#
-#
-WLpca<-prcomp(sqrt((WLpct)))#
-ordiplot(WLpca,type="text")
-WLpct<-matrix(NA,nr=nrow(WLtaxcc),nc=ncol(WLtaxcc))#
-for (k in 1:ncol(WLtaxcc)){#
-	WLpct[,k]<-WLtaxcc[,k]/sum(WLtaxcc[,k])#
-}#
-rownames(WLpct)<-rownames(WLtaxcc)#
-colnames(WLpct)<-colnames(WLtaxcc)
-# ordinations#
-pcWL<-principal_curve(sqrt(t(WLpct)))#
-plot(pcWL$lambda,type="l")#
-#
-WLpca<-prcomp(sqrt((WLpct)))#
-ordiplot(WLpca,type="text")
-plot(pcWL$lambda,type="l")
-ordiplot(WLpca,type="text")
-#iterate.index<-c()#
-simps<-c()#
-shans<-c()#
-PIEs<-c()#
-for (k in 1:ncol(WLtaxcc)){#
-	diversity.k<-WLtaxcc[,k]#
-	simpk<-diversity(as.numeric(as.character(diversity.k)),index="simpson")#
-	shank<-diversity(as.numeric(as.character(diversity.k)),index="shannon")#
-	div<-as.numeric(as.character(diversity.k))#
-	D<-1/(diversity(div,index="invsimpson"))#
-	sample.size=sum(diversity.k)#
-	PIE<-(1-D)*(sample.size/(sample.size-1))#
-	indicesk<-c(simpk,shank,PIE)#
-	#iterate.index<-rbind(indicesk,iterate.index)#
-	simps<-c(simpk,simps)#
-	shans<-c(shank,shans)#
-	PIEs<-c(PIE,PIEs)#
-}
-PIEs
-shans
-pie.quant<-matrix(NA,nr=ncol(WLtaxcc),nc=3)#
-for (j in 1:ncol(WLtaxcc)){#
-	L.abund<-WLtaxcc[,j]#
-	iterations=100#
-	#sample.size=sum(L.abund)#
-	sample.size=15#
-	if (sum(L.abund)<sample.size){#
-		pie.quant[j,]<-c(NA,NA,NA) #
-	} else {#
-	iteration.table<-c()#
-	for (i in 1:iterations) {#
-		spp.names.vector<-c()#
-		for (k in 1:length(L.abund)){#
-			k.spp.names<-c(rep(names(L.abund[k]),times=L.abund[k]))#
-			spp.names.vector<-c(k.spp.names,spp.names.vector)#
-		}#
-		runi<-sample(spp.names.vector,size=sample.size,replace=FALSE)#
-		iterationi<-(cbind(table(runi),rep(i,times=length(table(runi)))))#
-		iteration.i<-(cbind(rownames(iterationi),iterationi))#
-		names(iteration.i)<-c("taxon","sample","iteration")#
-		if (length(rownames(iteration.i))==length(colnames(L.abund))){#
-			iteration.i.plus<-iteration.i#
-		} else {#
-			spp.not.sampled<-setdiff(names(L.abund),rownames(iteration.i))#
-			n.zeros<-rep(0,times=length(spp.not.sampled))#
-			n.is<-rep(i,times=length(spp.not.sampled))#
-			add.rows<-cbind(spp.not.sampled,n.zeros,n.is)#
-			rownames(add.rows)<-spp.not.sampled#
-			names(add.rows)<-c("taxon","sample","iteration")#
-			iteration.i.plus<-rbind(add.rows,iteration.i)#
-		}#
-		iteration.table<-(rbind(iteration.table,iteration.i.plus))#
-		rownames(iteration.table)<-c(1:nrow(iteration.table))#
-		iteration.table.df<-as.data.frame(iteration.table)#
-	}#
-#
-	iterate.index<-c()#
-	simps<-c()#
-	shans<-c()#
-	PIEs<-c()#
-	for (k in 1:iterations){#
-	diversity.k<-(iteration.table.df[(iteration.table.df[,3])==k,])#
-	simpk<-diversity(as.numeric(as.character(diversity.k[,2])),index="simpson")#
-	shank<-diversity(as.numeric(as.character(diversity.k[,2])),index="shannon")#
-	div<-as.numeric(as.character(diversity.k[,2]))#
-	D<-1/(diversity(div,index="invsimpson"))#
-	PIE<-(1-D)*(sample.size/(sample.size-1))#
-	indicesk<-c(simpk,shank,PIE)#
-	iterate.index<-rbind(indicesk,iterate.index)#
-	simps<-c(simpk,simps)#
-	shans<-c(shank,shans)#
-	PIEs<-c(PIE,PIEs)#
-	}#
-colnames(iterate.index)<-c("simp","shan","PIE")#
-#
-pie.quant[j,]<-as.vector(quantile(PIEs,c(0.025,0.5,0.975)))#
-#
-}#
-}
-plot(1:length(WLlevels),pie.quant[,2],pch=16,ylim=c(0.5,1),xaxt="n")#
-segments(x0=1:length(WLlevels),x1=1:length(WLlevels),y0=pie.quant[,1],y1=pie.quant[,3])#
-axis(1,at=1:length(WLlevels),labels=WLlevels)
-WLlevels<-colnames(WLvar)
-WLvar<-WLpct#
-WLlevels<-colnames(WLvar)
-pie.quant<-matrix(NA,nr=ncol(WLtaxcc),nc=3)#
-for (j in 1:ncol(WLtaxcc)){#
-	L.abund<-WLtaxcc[,j]#
-	iterations=100#
-	#sample.size=sum(L.abund)#
-	sample.size=15#
-#
-	if (sum(L.abund)<sample.size){#
-		pie.quant[j,]<-c(NA,NA,NA) #
-	} else {#
-	iteration.table<-c()#
-	for (i in 1:iterations) {#
-		spp.names.vector<-c()#
-		for (k in 1:length(L.abund)){#
-			k.spp.names<-c(rep(names(L.abund[k]),times=L.abund[k]))#
-			spp.names.vector<-c(k.spp.names,spp.names.vector)#
-		}#
-		runi<-sample(spp.names.vector,size=sample.size,replace=FALSE)#
-		iterationi<-(cbind(table(runi),rep(i,times=length(table(runi)))))#
-		iteration.i<-(cbind(rownames(iterationi),iterationi))#
-		names(iteration.i)<-c("taxon","sample","iteration")#
-		if (length(rownames(iteration.i))==length(colnames(L.abund))){#
-			iteration.i.plus<-iteration.i#
-		} else {#
-			spp.not.sampled<-setdiff(names(L.abund),rownames(iteration.i))#
-			n.zeros<-rep(0,times=length(spp.not.sampled))#
-			n.is<-rep(i,times=length(spp.not.sampled))#
-			add.rows<-cbind(spp.not.sampled,n.zeros,n.is)#
-			rownames(add.rows)<-spp.not.sampled#
-			names(add.rows)<-c("taxon","sample","iteration")#
-			iteration.i.plus<-rbind(add.rows,iteration.i)#
-		}#
-		iteration.table<-(rbind(iteration.table,iteration.i.plus))#
-		rownames(iteration.table)<-c(1:nrow(iteration.table))#
-		iteration.table.df<-as.data.frame(iteration.table)#
-	}#
-#
-	iterate.index<-c()#
-	simps<-c()#
-	shans<-c()#
-	PIEs<-c()#
-	for (k in 1:iterations){#
-	diversity.k<-(iteration.table.df[(iteration.table.df[,3])==k,])#
-	simpk<-diversity(as.numeric(as.character(diversity.k[,2])),index="simpson")#
-	shank<-diversity(as.numeric(as.character(diversity.k[,2])),index="shannon")#
-	div<-as.numeric(as.character(diversity.k[,2]))#
-	D<-1/(diversity(div,index="invsimpson"))#
-	PIE<-(1-D)*(sample.size/(sample.size-1))#
-	indicesk<-c(simpk,shank,PIE)#
-	iterate.index<-rbind(indicesk,iterate.index)#
-	simps<-c(simpk,simps)#
-	shans<-c(shank,shans)#
-	PIEs<-c(PIE,PIEs)#
-	}#
-colnames(iterate.index)<-c("simp","shan","PIE")#
-#
-pie.quant[j,]<-as.vector(quantile(PIEs,c(0.025,0.5,0.975)))#
-#
-}#
-}
-plot(1:length(WLlevels),pie.quant[,2],pch=16,ylim=c(0.5,1),xaxt="n")#
-segments(x0=1:length(WLlevels),x1=1:length(WLlevels),y0=pie.quant[,1],y1=pie.quant[,3])#
-axis(1,at=1:length(WLlevels),labels=WLlevels)
-# CHRONOLOGY__________________________________#
-library(Bchron)#
-WL<-read.csv("~/Google Drive/1 Stanford postdoc/Vertebrate Research/Waterfall Locality/2019 updated ms/Data/Waterfall_14C.csv")#
-#
-# calibrate all dates
-am<-Bchronology(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth,jitterPositions=T)
-bone<-WL[which(WL$Material!="charcoal"),]#
-bone.calybp<-BchronCalibrate(ages=bone$X14C.Age,ageSds=bone$X14C.Err,calCurves=bone$cc,positions=bone$Depth)
-am<-Bchronology(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth,jitterPositions=T)
-WL$Depth
-?Bchronology
-setwd("~/Desktop/Research_Git/NeotomaRfns")#
-document()
-# calibrate all dates#
-XX<-BchronCalibrate(ages=WL$X14C.Age,ageSds=WL$X14C.Err,calCurves=WL$cc,positions=WL$Depth)#
-plot(XX,withPositions=T,xlim=c(3500,0),ylim=c(200,0),ylab="Depth (cm)",xlab="Cal yr BP",fillCols=rep("gray60",length(XX)),las=1,main="")#
-abline(v=seq(0,4000,500),lwd=0.25)
+cd ..
